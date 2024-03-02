@@ -24,7 +24,7 @@ LESS : '<';
 IMPORT : 'import';
 EXTENDS : 'extends';
 
-STRING : 'string' ;
+STRING : 'String' ;
 CLASS : 'class' ;
 INT : 'int' ;
 BOOL : 'boolean' ;
@@ -79,6 +79,7 @@ type
     | name= INT '...' #Varchar
     | name= BOOL #Bool
     | name= INT #Int
+    | name= STRING #String
     | name= ID #Id
     ;
 
@@ -87,12 +88,15 @@ methodDecl locals[boolean isPublic=false]
     : (PUBLIC {$isPublic=true;})?
         type name=ID
         LPAREN (param(COLON param)*)? RPAREN
-        LCURLY varDecl* stmt* RETURN expr SEMI RCURLY
+        LCURLY (varDecl)* (stmt)* RETURN expr SEMI RCURLY
     | (PUBLIC {$isPublic=true;})?
         STATIC VOID MAIN LPAREN STRING LBRACKETS RBRACKETS name=ID RPAREN LCURLY varDecl* stmt* RCURLY
     ;
 
-
+//methodDeclaration ::= (‘public’)? type ID ‘(’ ( type ID ( ‘,’ type ID )* )? ‘)’ ‘{’ ( varDeclaration
+//)* ( statement )* ‘return’ expression ‘;’ ‘}’
+//| (‘public’)? ‘static’ ‘void’ ‘main’ ‘(’ ‘String’ ‘[’ ‘]’ ID ‘)’ ‘{’ ( varDeclaration
+//)* ( statement )* ‘}’
 
 
 param
