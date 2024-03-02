@@ -43,14 +43,18 @@ IF : 'if' ;
 INTEGER : [0-9] ;
 ID : [a-zA-Z]+ ;
 
+SINGLE_COMMENT : DIV DIV .*? '\n' -> skip ;
+MULTI_COMMENT : DIV MUL  .*? MUL DIV -> skip ;
+
 WS : [ \t\n\r\f]+ -> skip ;
 
 program
-    : importDeclaration* classDecl EOF
+    : stmt + EOF
+    | importDeclaration* classDecl EOF
     ;
 
 importDeclaration
-    : IMPORT ID (DOT ID)* SEMI
+    : IMPORT value+=ID (DOT value+=ID)* SEMI
     ;
 
 
@@ -63,19 +67,20 @@ classDecl
         RCURLY
     ;
 
-
-
+//"callee.foo()[10].length"
 
 varDecl
-    : type name=ID SEMI
+    : type name=ID SEMI //int a;
+    | type name=ID op=LBRACKETS op=RBRACKETS SEMI // int a[];
     ;
 
 type
-    : name= INT LBRACKETS RBRACKETS
-    //| name= INT
-    | name= BOOL
-    | name= INT
-    | name= ID ;
+    : name= INT LBRACKETS RBRACKETS #Array
+    | name= INT '...' #Varchar
+    | name= BOOL #Bool
+    | name= INT #Int
+    | name= ID #Id
+    ;
 
 
 methodDecl locals[boolean isPublic=false]
@@ -117,7 +122,7 @@ expr
     | expr op= AND expr #BinaryExpr
     | expr LBRACKETS expr RBRACKETS #BracketExpr
     | expr DOT 'length' #LengthExpr
-    | expr DOT ID LPAREN (expr (COLON expr)* )? RPAREN #MethodExpr
+    | expr DOT ID LPAREN (expr (COLON expr)* )? RPAREN #MethodCall
     | 'new' INT LBRACKETS expr RBRACKETS #NewBracketExpr
     | 'new' ID LPAREN RPAREN #NewObject
     | LPAREN expr RPAREN #ParentExpr
