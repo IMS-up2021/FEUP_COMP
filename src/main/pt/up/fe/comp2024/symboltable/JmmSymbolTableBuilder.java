@@ -32,6 +32,7 @@ public class JmmSymbolTableBuilder {
         return new JmmSymbolTable(className, methods, returnTypes, params, locals);
     }
 
+
     private static Map<String, Type> buildReturnTypes(JmmNode classDecl) {
         // TODO: Simple implementation that needs to be expanded
 

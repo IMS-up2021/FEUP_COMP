@@ -1,2 +1,14 @@
-import bar;
+class Simple{  
+    public static void main(String [] args){
+     int a;
+     int b;
+     a = 2;
+     b = a + 2;
+    }
 
+    public int calculateAnswer(int a) {
+        int j;
+        j = 3;
+        return j;
+    }
+}  

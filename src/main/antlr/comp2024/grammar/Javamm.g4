@@ -68,7 +68,6 @@ classDecl
         RCURLY
     ;
 
-//"callee.foo()[10].length"
 
 varDecl
     : type name=ID SEMI //int a;
@@ -76,12 +75,12 @@ varDecl
     ;
 
 type
-    : name= INT LBRACKETS RBRACKETS #Array
-    | name= INT '...' #Varchar
-    | name= BOOL #Bool
-    | name= INT #Int
-    | name= STRING #String
-    | name= ID #Id
+    : declaration= INT LBRACKETS RBRACKETS #Array
+    | declaration= INT '...' #Varchar
+    | declaration= BOOL #Bool
+    | declaration= INT #Int
+    | declaration= STRING #String
+    | declaration= ID #Id
     ;
 
 
@@ -94,10 +93,7 @@ methodDecl locals[boolean isPublic=false]
         STATIC VOID MAIN LPAREN STRING LBRACKETS RBRACKETS name=ID RPAREN LCURLY varDecl* stmt* RCURLY
     ;
 
-//methodDeclaration ::= (‘public’)? type ID ‘(’ ( type ID ( ‘,’ type ID )* )? ‘)’ ‘{’ ( varDeclaration
-//)* ( statement )* ‘return’ expression ‘;’ ‘}’
-//| (‘public’)? ‘static’ ‘void’ ‘main’ ‘(’ ‘String’ ‘[’ ‘]’ ID ‘)’ ‘{’ ( varDeclaration
-//)* ( statement )* ‘}’
+
 
 
 param
