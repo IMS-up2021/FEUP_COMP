@@ -40,8 +40,9 @@ IF : 'if' ;
 
 
 
-INTEGER : [0-9] ;
-ID : [a-zA-Z]+ ;
+INTEGER : [0] | ([1-9][0-9]*);
+ID : [a-zA-Z]+ [a-zA-Z0-9]* ;
+
 
 SINGLE_COMMENT : DIV DIV .*? '\n' -> skip ;
 MULTI_COMMENT : DIV MUL  .*? MUL DIV -> skip ;
@@ -107,7 +108,7 @@ param
 stmt
     : LCURLY stmt* RCURLY
     | IF LPAREN expr RPAREN stmt ELSE stmt
-    | WHILE LPAREN expr RPAREN stmt ELSE stmt
+    | WHILE LPAREN expr RPAREN stmt
     | expr SEMI
     | expr EQUALS expr SEMI //#AssignStmt //
     | ID LBRACKETS expr RBRACKETS EQUALS expr SEMI
