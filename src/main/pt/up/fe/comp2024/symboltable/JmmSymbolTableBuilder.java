@@ -20,7 +20,7 @@ public class JmmSymbolTableBuilder {
     System.out.println(imports);
 
     for (JmmNode child : root.getChildren()){
-      if (child.getKind().equals("importDeclaration")){
+      if (child.getKind().equals("ImportDecl")){
 
       } else if ("ClassDecl".equals(child.getKind())) {
         classDecl = child;
@@ -57,7 +57,7 @@ public class JmmSymbolTableBuilder {
   }
 
  private static  List<String> buildImports(JmmNode program){
-    return program.getChildren("ImportDeclaration").stream().map(each_import -> each_import.get("value")).toList();
+    return program.getChildren("ImportDecl").stream().map(each_import -> each_import.get("value")).toList();
  }
 
 

@@ -55,7 +55,7 @@ program
     ;
 
 importDeclaration
-    : IMPORT value+=ID (DOT value+=ID)* SEMI
+    : IMPORT value+=ID (DOT value+=ID)* SEMI #ImportDecl
     ;
 
 
