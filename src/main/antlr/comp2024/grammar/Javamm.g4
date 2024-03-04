@@ -74,8 +74,8 @@ extendsDecl
 
 
 varDecl
-    : type name=ID SEMI //int a;
-    | type name=ID op=LBRACKETS op=RBRACKETS SEMI // int a[];
+    : type name=(ID|MAIN) SEMI //int a;
+    | type name=(ID|MAIN) op=LBRACKETS op=RBRACKETS SEMI // int a[];
     ;
 
 type
@@ -136,7 +136,7 @@ expr
     | 'false' #FalseLiteral
     | 'this' #ThisLiteral
     | value=INTEGER #IntegerLiteral //
-    | name=ID #VarRefExpr //
+    | name=(ID|MAIN) #VarRefExpr //
     ;
 
 

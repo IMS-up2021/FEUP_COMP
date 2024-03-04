@@ -1,5 +1,27 @@
-import UltraSuper;
 
-class Super extends UltraSuper{
+class MethodsAndFields{
+	int main;
+	boolean field2;
+	MethodsAndFields field3;
 
+	public int getField1(){
+		return main;
+	}
+
+	public boolean getField2(){
+		return field2;
+	}
+
+	public MethodsAndFields getField3(){
+		return field3;
+	}
+
+	public int[] all(int a, boolean b, MethodsAndFields maf){
+		int[] c;
+		return c;
+	}
+
+	public static void main(String[] args){
+
+	}
 }
