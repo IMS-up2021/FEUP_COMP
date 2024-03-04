@@ -28,7 +28,7 @@ public class JmmSymbolTableBuilder {
     }
 
     String className = classDecl.get("name");
-
+    String superClassName = buildSuperClassName(classDecl);
     var fields = buildFields(classDecl);
     var methods = buildMethods(classDecl);
     var returnTypes = buildReturnTypes(classDecl);
@@ -37,6 +37,7 @@ public class JmmSymbolTableBuilder {
 
     return new JmmSymbolTable(
       className,
+      superClassName,
       methods,
       imports,
       fields,
@@ -44,6 +45,21 @@ public class JmmSymbolTableBuilder {
       params,
       locals
     );
+  }
+
+  private static String buildSuperClassName(JmmNode classDecl) {
+    System.out.println("Inside buildSuperClassName");
+    for (JmmNode child : classDecl.getChildren()) {
+      System.out.println("Inside For Loop");
+      System.out.println("Child kind: " + child.getKind()); // Print the kind of the child
+      if ("ExtendsDecl".equals(child.getKind())) {
+        //System.out.println("Inside If");
+        //print node
+        //System.out.println("Child: " + child);
+        return child.get("name");
+      }
+    }
+    return null;
   }
 
   private static Map<String, Type> buildReturnTypes(JmmNode classDecl) {

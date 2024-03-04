@@ -61,11 +61,15 @@ importDeclaration
 
 classDecl
     : CLASS name=ID
-        (EXTENDS ID)?
+        extendsDecl? // Use the new extendsDecl rule
         LCURLY
         varDecl*
         methodDecl*
         RCURLY
+    ;
+
+extendsDecl
+    : EXTENDS name=ID // Create a new rule for the extends declaration
     ;
 
 

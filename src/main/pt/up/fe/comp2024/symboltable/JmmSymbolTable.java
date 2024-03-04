@@ -12,6 +12,9 @@ import pt.up.fe.specs.util.exceptions.NotImplementedException;
 public class JmmSymbolTable implements SymbolTable {
 
   private final String className;
+
+  private final String superClassName;
+  
   private final List<String> methods;
 
   private final List<String> imports;
@@ -24,6 +27,7 @@ public class JmmSymbolTable implements SymbolTable {
 
   public JmmSymbolTable(
     String className,
+    String superClassName,
     List<String> methods,
     List<String> imports,
     List<Symbol> fields,
@@ -32,6 +36,7 @@ public class JmmSymbolTable implements SymbolTable {
     Map<String, List<Symbol>> locals
   ) {
     this.className = className;
+    this.superClassName = superClassName;
     this.methods = methods;
     this.imports = imports;
     this.fields = fields;
@@ -52,7 +57,7 @@ public class JmmSymbolTable implements SymbolTable {
 
   @Override
   public String getSuper() {
-    throw new NotImplementedException();
+    return this.superClassName;
   }
 
   @Override
