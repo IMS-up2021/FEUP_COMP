@@ -1,8 +1,9 @@
 package pt.up.fe.comp2024.symboltable;
 
+import static pt.up.fe.comp2024.ast.Kind.*;
+
 import java.util.*;
 import java.util.stream.Collectors;
-
 import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
@@ -10,150 +11,180 @@ import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.TypeUtils;
 import pt.up.fe.specs.util.SpecsCheck;
 
-import static pt.up.fe.comp2024.ast.Kind.*;
-
 public class JmmSymbolTableBuilder {
 
-    public static JmmSymbolTable build(JmmNode root) {
-        JmmNode classDecl = root;
+  public static JmmSymbolTable build(JmmNode root) {
+    JmmNode classDecl = root;
 
-        var imports = buildImports(root);
-        System.out.println(imports);
+    var imports = buildImports(root);
+    System.out.println(imports);
 
-        for (JmmNode child : root.getChildren()) {
-            if (child.getKind().equals("ImportDecl")) {
+    for (JmmNode child : root.getChildren()) {
+      if (child.getKind().equals("ImportDecl")) {} else if (
+        "ClassDecl".equals(child.getKind())
+      ) {
+        classDecl = child;
+      }
+    }
 
-            } else if ("ClassDecl".equals(child.getKind())) {
-                classDecl = child;
-            }
+    String className = classDecl.get("name");
+
+    var fields = buildFields(classDecl);
+    var methods = buildMethods(classDecl);
+    var returnTypes = buildReturnTypes(classDecl);
+    var params = buildParams(classDecl);
+    var locals = buildLocals(classDecl);
+
+    return new JmmSymbolTable(
+      className,
+      methods,
+      imports,
+      fields,
+      returnTypes,
+      params,
+      locals
+    );
+  }
+
+  private static Map<String, Type> buildReturnTypes(JmmNode classDecl) {
+    Map<String, Type> map = new HashMap<>();
+
+    classDecl
+      .getChildren(METHOD_DECL)
+      .stream()
+      .forEach(method -> {
+        String methodName = method.get("name");
+        //System.out.println("(Builder)Method: " + methodName);
+
+        // Skip processing for the main method
+        if ("main".equals(methodName)) {
+          map.put(methodName, new Type("void", false));
+          return;
         }
 
+        // Get the return type node
+        JmmNode returnTypeNode = method.getChildren().get(0);
 
-        String className = classDecl.get("name");
+        // Get the type attribute of the return type node
+        String returnType = returnTypeNode.get("declaration");
+        //System.out.println("RETURN TYPE" + returnType);
 
-        var fields = buildFields(classDecl);
-        var methods = buildMethods(classDecl);
-        var returnTypes = buildReturnTypes(classDecl);
-        var params = buildParams(classDecl);
-        var locals = buildLocals(classDecl);
+        // Check if the return type is an array
+        boolean isArray = "Array".equals(returnTypeNode.getKind());
 
+        // Create a new Type with the return type and add it to the map
+        map.put(methodName, new Type(returnType, isArray));
+      });
 
-        return new JmmSymbolTable(className, methods, imports, fields, returnTypes, params, locals);
-    }
+    System.out.println("MAP NEXT!!");
+    // Print the contents of the map
+    map.forEach((key, value) ->
+      System.out.println(
+        "Method: " +
+        key +
+        ", Return type: " +
+        value.getName() +
+        ", Is array: " +
+        value.isArray()
+      )
+    );
 
-    private static Map<String, Type> buildReturnTypes(JmmNode classDecl) {
-        Map<String, Type> map = new HashMap<>();
+    return map;
+  }
 
-        classDecl
-                .getChildren(METHOD_DECL)
-                .stream()
-                .forEach(method -> {
-                    // Get the return type nodes
-                    List<JmmNode> returnTypeNodes = method.getChildren("type");
+  private static List<String> buildImports(JmmNode program) {
+    return program
+      .getChildren("ImportDecl")
+      .stream()
+      .map(each_import -> each_import.get("value"))
+      .toList();
+  }
 
-                    // Check if the method has a return type
-                    if (!returnTypeNodes.isEmpty()) {
-                        // Get the return type node
-                        JmmNode returnTypeNode = returnTypeNodes.get(0);
-                        // Get the type attribute of the return type node
-                        String returnType = returnTypeNode.get("name");
+  private static List<Symbol> buildFields(JmmNode classDecl) {
+    List<Symbol> allVarDecl = new ArrayList<>();
 
-                        // Create a new Type with the return type and add it to the map
-                        map.put(method.get("name"), new Type(returnType, false));
-                    }
-                });
+    classDecl
+      .getChildren("VarDecl")
+      .stream()
+      .forEach(varDecl -> {
+        // Get the first child of the varDecl node, which is the type node
+        JmmNode typeNode = varDecl.getChildren().get(0);
+        // Get the declaration attribute of the type node
+        String typeDeclaration = typeNode.get("declaration");
 
-        return map;
-    }
+        // Create a new Symbol with the type and name of the field
+        Symbol fieldSymbol = new Symbol(
+          new Type(typeDeclaration, false),
+          varDecl.get("name")
+        );
 
-    private static List<String> buildImports(JmmNode program) {
-        return program.getChildren("ImportDecl").stream().map(each_import -> each_import.get("value")).toList();
-    }
+        allVarDecl.add(fieldSymbol);
+      });
 
+    return allVarDecl;
+  }
 
-    private static List<Symbol> buildFields(JmmNode classDecl) {
-        List<Symbol> allVarDecl = new ArrayList<>();
+  private static Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
+    Map<String, List<Symbol>> map = new HashMap<>();
 
-        classDecl.getChildren("VarDecl").stream().forEach(varDecl -> {
-            // Get the first child of the varDecl node, which is the type node
-            JmmNode typeNode = varDecl.getChildren().get(0);
+    classDecl
+      .getChildren(METHOD_DECL)
+      .stream()
+      .forEach(method -> {
+        List<Symbol> parameters = method
+          .getChildren()
+          .stream()
+          .filter(child -> "Param".equals(child.getKind())) // check kind
+          .map(param -> {
+            // Get the first child of the param node, which is the type node
+            JmmNode typeNode = param.getChildren().get(0);
             // Get the declaration attribute of the type node
             String typeDeclaration = typeNode.get("declaration");
 
-            // Create a new Symbol with the type and name of the field
-            Symbol fieldSymbol = new Symbol(
-                    new Type(typeDeclaration, false),
-                    varDecl.get("name")
+            // Create a new Symbol with the type and name of the param
+            return new Symbol(
+              new Type(typeDeclaration, false),
+              param.get("name")
             );
+          })
+          .collect(Collectors.toList());
 
-            allVarDecl.add(fieldSymbol);
-        });
+        map.put(method.get("name"), parameters);
+      });
 
-        return allVarDecl;
-    }
+    return map;
+  }
 
+  private static Map<String, List<Symbol>> buildLocals(JmmNode classDecl) {
+    // TODO: Simple implementation that needs to be expanded
 
-    private static Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
-        Map<String, List<Symbol>> map = new HashMap<>();
+    Map<String, List<Symbol>> map = new HashMap<>();
 
-        classDecl
-                .getChildren(METHOD_DECL)
-                .stream()
-                .forEach(method -> {
-                    List<Symbol> parameters = method
-                            .getChildren()
-                            .stream()
-                            .filter(child -> "Param".equals(child.getKind())) // check kind
-                            .map(param -> {
-                                // Get the first child of the param node, which is the type node
-                                JmmNode typeNode = param.getChildren().get(0);
-                                // Get the declaration attribute of the type node
-                                String typeDeclaration = typeNode.get("declaration");
+    classDecl
+      .getChildren(METHOD_DECL)
+      .stream()
+      .forEach(method -> map.put(method.get("name"), getLocalsList(method)));
 
-                                // Create a new Symbol with the type and name of the param
-                                return new Symbol(
-                                        new Type(typeDeclaration, false),
-                                        param.get("name")
-                                );
-                            })
-                            .collect(Collectors.toList());
+    return map;
+  }
 
-                    map.put(method.get("name"), parameters);
-                });
+  private static List<String> buildMethods(JmmNode classDecl) {
+    return classDecl
+      .getChildren(METHOD_DECL)
+      .stream()
+      .map(method -> method.get("name"))
+      .toList();
+  }
 
-        return map;
-    }
+  private static List<Symbol> getLocalsList(JmmNode methodDecl) {
+    // TODO: Simple implementation that needs to be expanded
 
-    private static Map<String, List<Symbol>> buildLocals(JmmNode classDecl) {
-        // TODO: Simple implementation that needs to be expanded
+    var intType = new Type(TypeUtils.getIntTypeName(), false);
 
-        Map<String, List<Symbol>> map = new HashMap<>();
-
-        classDecl
-                .getChildren(METHOD_DECL)
-                .stream()
-                .forEach(method -> map.put(method.get("name"), getLocalsList(method)));
-
-        return map;
-    }
-
-    private static List<String> buildMethods(JmmNode classDecl) {
-        return classDecl
-                .getChildren(METHOD_DECL)
-                .stream()
-                .map(method -> method.get("name"))
-                .toList();
-    }
-
-    private static List<Symbol> getLocalsList(JmmNode methodDecl) {
-        // TODO: Simple implementation that needs to be expanded
-
-        var intType = new Type(TypeUtils.getIntTypeName(), false);
-
-        return methodDecl
-                .getChildren(VAR_DECL)
-                .stream()
-                .map(varDecl -> new Symbol(intType, varDecl.get("name")))
-                .toList();
-    }
+    return methodDecl
+      .getChildren(VAR_DECL)
+      .stream()
+      .map(varDecl -> new Symbol(intType, varDecl.get("name")))
+      .toList();
+  }
 }

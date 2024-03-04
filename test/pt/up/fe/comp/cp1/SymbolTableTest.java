@@ -87,6 +87,10 @@ public class SymbolTableTest {
         for (var m : methods) {
             var ret = st.getReturnType(m);
             var numParameters = st.getParameters(m).size();
+            // System.out.println("Method: " + m);
+            // System.out.println("Return type: " + ret.getName());
+            // System.out.println("Is array: " + ret.isArray());
+            // System.out.println("Number of parameters: " + numParameters);
             switch (ret.getName()) {
                 case "MethodsAndFields":
                     checkObj++;
@@ -102,19 +106,16 @@ public class SymbolTableTest {
                         assertEquals("Method " + m + " parameters", 3, numParameters);
                     } else {
                         checkInt++;
+                        System.out.println("BEFORE CHECK");
                         assertEquals("Method " + m + " parameters", 0, numParameters);
                     }
                     break;
-
             }
         }
-        ;
         assertEquals("Method with return type int", 1, checkInt);
         assertEquals("Method with return type boolean", 1, checkBool);
         assertEquals("Method with return type object", 1, checkObj);
         assertEquals("Method with three arguments", 1, checkAll);
-
-
     }
 
     @Test

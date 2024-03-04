@@ -90,7 +90,7 @@ methodDecl locals[boolean isPublic=false]
         LPAREN (param(COLON param)*)? RPAREN
         LCURLY (varDecl)* (stmt)* RETURN expr SEMI RCURLY
     | (PUBLIC {$isPublic=true;})?
-        STATIC VOID MAIN LPAREN STRING LBRACKETS RBRACKETS name=ID RPAREN LCURLY varDecl* stmt* RCURLY
+        STATIC VOID name=MAIN LPAREN STRING LBRACKETS RBRACKETS ID RPAREN LCURLY varDecl* stmt* RCURLY
     ;
 
 
