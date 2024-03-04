@@ -1,6 +1,7 @@
-import io.ola.eu.sou;
-import List;
 
-class T{
+class Parameters{
 
+	public int all(int[] a, boolean b, Parameters maf){
+		return 0;
+	}
 }
