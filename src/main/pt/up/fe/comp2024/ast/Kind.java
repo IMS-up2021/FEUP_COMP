@@ -17,10 +17,19 @@ public enum Kind {
     RETURN_STMT,
     BINARY_EXPR,
     INTEGER_LITERAL,
-
-    IMPORT_DECLARARION, //
-
-    UNARY_EXPR, //
+    BOOL,
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    AND,
+    LESS,
+    MORE,
+    OR,
+    TRUE_LITERAL,
+    FALSE_LITERAL,
+    IMPORT_DECLARARION,
+    UNARY_EXPR,
 
     VAR_REF_EXPR;
 

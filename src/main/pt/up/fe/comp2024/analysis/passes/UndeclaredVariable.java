@@ -22,6 +22,7 @@ public class UndeclaredVariable extends AnalysisVisitor {
     public void buildVisitor() {
         addVisit(Kind.METHOD_DECL, this::visitMethodDecl);
         addVisit(Kind.VAR_REF_EXPR, this::visitVarRefExpr);
+        addVisit(Kind.BINARY_EXPR, this::checkBinaryExpression);
     }
 
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
@@ -32,29 +33,130 @@ public class UndeclaredVariable extends AnalysisVisitor {
     private Void visitVarRefExpr(JmmNode varRefExpr, SymbolTable table) {
         SpecsCheck.checkNotNull(currentMethod, () -> "Expected current method to be set");
 
-        // Check if exists a parameter or variable declaration with the same name as the variable reference
-        var varRefName = varRefExpr.get("name");
+        String varRefName = varRefExpr.get("name");
 
-        // Var is a field, return
-        if (table.getFields().stream()
-                .anyMatch(param -> param.getName().equals(varRefName))) {
-            return null;
+        // Check if variable is declared in current method
+        if (!isDeclaredLocally(varRefName, table)) {
+            // Check if variable is a field of the class
+            if (!isField(varRefName, table)) {
+                // Check if variable is a parameter of the current method
+                if (!isParameter(varRefName, table)) {
+                    // Check if variable is an imported class
+                    if (!isImportedClass(varRefName, table)) {
+                        // Variable is undeclared
+                        addUndeclaredVariableError(varRefExpr, varRefName);
+                    }
+                }
+            }
         }
 
-        // Var is a parameter, return
-        if (table.getParameters(currentMethod).stream()
-                .anyMatch(param -> param.getName().equals(varRefName))) {
-            return null;
+        return null;
+    }
+
+    private boolean isDeclaredLocally(String varName, SymbolTable table) {
+        return table.getLocalVariables(currentMethod).stream()
+                .anyMatch(varDecl -> varDecl.getName().equals(varName));
+    }
+
+    private boolean isField(String varName, SymbolTable table) {
+        return table.getFields().stream()
+                .anyMatch(field -> field.getName().equals(varName));
+    }
+
+    private boolean isParameter(String varName, SymbolTable table) {
+        return table.getParameters(currentMethod).stream()
+                .anyMatch(param -> param.getName().equals(varName));
+    }
+
+    private boolean isImportedClass(String varName, SymbolTable table) {
+        return table.getImports().stream()
+                .anyMatch(importedClass -> importedClass.endsWith("." + varName));
+    }
+
+    private Void checkBinaryExpression(JmmNode binaryExpr, SymbolTable table) {
+        JmmNode leftOperand = binaryExpr.getChildren().get(0);
+        JmmNode rightOperand = binaryExpr.getChildren().get(1);
+        String operationKindString = binaryExpr.getKind();
+        Kind operationKind = Kind.fromString(operationKindString);
+
+        switch (operationKind) {
+            case ADD:
+                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
+                    addError("Operands of ADD operation must be of type int", binaryExpr);
+                }
+                break;
+            case SUB:
+                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
+                    addError("Operands of SUB operation must be of type int", binaryExpr);
+                }
+                break;
+            case MUL:
+                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
+                    addError("Operands of MUL operation must be of type int", binaryExpr);
+                }
+                break;
+            case DIV:
+                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
+                    addError("Operands of DIV must be of type int", binaryExpr);
+                }
+                break;
+            case AND:
+                if (!isBoolean(leftOperand, table) || !isBoolean(rightOperand, table)) {
+                    addError("Operands of logical AND operation must be of type boolean", binaryExpr);
+                }
+                break;
+            case LESS:
+                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
+                    addError("Operands of less-than operation must be of type int", binaryExpr);
+                }
+                break;
+            case MORE:
+                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
+                    addError("Operands of more-than operation must be of type int", binaryExpr);
+                }
+                break;
+            case OR:
+                if (!isBoolean(leftOperand, table) || !isBoolean(rightOperand, table)) {
+                    addError("Operands of logical OR operation must be of type boolean", binaryExpr);
+                }
+                break;
         }
 
-        // Var is a declared variable, return
-        if (table.getLocalVariables(currentMethod).stream()
-                .anyMatch(varDecl -> varDecl.getName().equals(varRefName))) {
-            return null;
-        }
+        return null;
+    }
 
-        // Create error report
-        var message = String.format("Variable '%s' does not exist.", varRefName);
+    private boolean isInt(JmmNode node, SymbolTable table) {
+        if (node.getKind().equals("INTEGER_LITERAL")) {
+            return true;
+        }
+        if (node.getKind().equals("INT")) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isBoolean(JmmNode node, SymbolTable table) {
+        if (node.getKind().equals("BOOL")) {
+            return true;
+        }
+        if (node.getKind().equals("TRUE_LITERAL") || node.getKind().equals("FALSE_LITERAL")) {
+            return true;
+        }
+        return false;
+    }
+
+    //private boolean isOp(JmmNode node, SymbolTable table);
+
+    private void addError(String message, JmmNode node) {
+        int line = NodeUtils.getLine(node);
+        int column = NodeUtils.getColumn(node);
+        Report errorReport = Report.newError(Stage.SEMANTIC, line, column, message, null);
+        addReport(errorReport);
+    }
+
+
+    private void addUndeclaredVariableError(JmmNode varRefExpr, String varName) {
+        var message = String.format("Variable '%s' is undeclared.", varName);
         addReport(Report.newError(
                 Stage.SEMANTIC,
                 NodeUtils.getLine(varRefExpr),
@@ -62,9 +164,5 @@ public class UndeclaredVariable extends AnalysisVisitor {
                 message,
                 null)
         );
-
-        return null;
     }
-
-
 }
