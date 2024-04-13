@@ -165,4 +165,73 @@ public class UndeclaredVariable extends AnalysisVisitor {
                 null)
         );
     }
+
+    private void checkExpression(JmmNode exprNode, SymbolTable table) {
+        switch (exprNode.getKind()) {
+            case "ARRAY_ACCESS":
+                checkArrayAccess(exprNode, table);
+                break;
+            default:
+                // Handle other expression types if needed
+                break;
+        }
+    }
+
+    private void checkArrayAccess(JmmNode arrayAccessNode, SymbolTable table) {
+        JmmNode arrayExpr = arrayAccessNode.getChildren().get(0);
+        JmmNode indexExpr = arrayAccessNode.getChildren().get(1);
+
+        if (!isArray(arrayExpr, table)) {
+            addError("Array access is done over a non-array type", arrayAccessNode);
+        }
+        if (!isInt(indexExpr, table)) {
+            addError("Array access index is not of integer type", indexExpr);
+        }
+    }
+
+    private boolean isArray(JmmNode exprNode, SymbolTable table) {
+        String exprType = table.getExpressionType(exprNode);
+
+        return exprType != null && exprType.endsWith("[]");
+    }
+
+    private void checkAssignment(JmmNode assignNode, JmmSymbolTable symbolTable) {
+        JmmNode leftExpr = assignNode.getChildren().get(0);
+        JmmNode rightExpr = assignNode.getChildren().get(1);
+
+        String leftExprType = symbolTable.getExpressionType(leftExpr);
+        String rightExprType = symbolTable.getExpressionType(rightExpr);
+
+        if (!isAssignable(leftExprType, rightExprType)) {
+            addError("Type of the assignee is not compatible with the assigned", assignNode);
+        }
+    }
+
+    private void checkCondition(JmmNode conditionNode, JmmSymbolTable symbolTable) {
+        String conditionType = symbolTable.getExpressionType(conditionNode);
+
+        if (!"boolean".equals(conditionType)) {
+            addError("Expression in condition must return a boolean", conditionNode);
+        }
+    }
+
+    private void checkThisExpression(JmmNode thisExprNode, JmmSymbolTable symbolTable) {
+        if (symbolTable.isStaticMethod()) {
+            addError("Cannot use 'this' expression in a static method", thisExprNode);
+        }
+    }
+
+    private void checkThisAsObject(JmmNode thisExprNode, JmmSymbolTable symbolTable) {
+        String className = symbolTable.getClassName();
+        String exprClassName = symbolTable.getExpressionType(thisExprNode);
+
+        if (exprClassName != null && !className.equals(exprClassName) && !symbolTable.isSuperClass(className, exprClassName)) {
+            addError("Cannot use 'this' as an object in this context", thisExprNode);
+        }
+    }
+/*
+    private boolean isAssignable(String leftType, String rightType) {
+        // Implementar lógica para verificar se o tipo do operando à esquerda é compatível com o tipo do operando à direita
+    }
+    */
 }
