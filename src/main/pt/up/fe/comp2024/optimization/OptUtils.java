@@ -24,6 +24,11 @@ public class OptUtils {
         return prefix + getNextTempNum();
     }
 
+    public static String getCurrentTemp() {
+
+        return "tmp" + (getNextTempNum() - 1);
+    }
+
     public static int getNextTempNum() {
 
         tempNumber += 1;
@@ -32,9 +37,9 @@ public class OptUtils {
 
     public static String toOllirType(JmmNode typeNode) {
 
-        TYPE.checkOrThrow(typeNode);
+        //TYPE.checkOrThrow(typeNode);
 
-        String typeName = typeNode.get("name");
+        String typeName = typeNode.get("declaration");
 
         return toOllirType(typeName);
     }
@@ -47,6 +52,7 @@ public class OptUtils {
 
         String type = "." + switch (typeName) {
             case "int" -> "i32";
+            case "boolean" -> "bool";
             default -> throw new NotImplementedException(typeName);
         };
 

@@ -1,5 +1,5 @@
 import io;
-
+import A;
 class CompileMethodInvocation {
 
     public static void main(String[] args) {
@@ -8,9 +8,11 @@ class CompileMethodInvocation {
 
     public int foo() {
         int a;
+        A b;
 
         a = 1;
 
+        b.bar();
         io.println(a);
 
         return 0;

@@ -108,13 +108,13 @@ param
 
 
 stmt
-    : LCURLY stmt* RCURLY
-    | IF LPAREN expr RPAREN stmt ELSE stmt
-    | WHILE LPAREN expr RPAREN stmt
-    | expr SEMI
-    | expr EQUALS expr SEMI //#AssignStmt //
-    | ID LBRACKETS expr RBRACKETS EQUALS expr SEMI
-    //| RETURN expr SEMI //#ReturnStmt //pode ter varios returns???
+    : LCURLY stmt* RCURLY #BlockStmt
+    | IF LPAREN expr RPAREN stmt ELSE stmt #IfElseStmt
+    | WHILE LPAREN expr RPAREN stmt #WhileStmt
+    | expr SEMI #SimpleExprStmt
+    | expr EQUALS expr SEMI #AssignStmt
+    | ID LBRACKETS expr RBRACKETS EQUALS expr SEMI #ArrayAssignStmt //a[1] = 2;
+    //| RETURN expr SEMI #ReturnStmt //pode ter varios returns???
     ;
 
 
@@ -129,7 +129,7 @@ expr
     | expr op= AND expr #BinaryExpr
     | expr LBRACKETS expr RBRACKETS #BracketExpr
     | expr DOT 'length' #LengthExpr
-    | expr DOT ID LPAREN (expr (COLON expr)* )? RPAREN #MethodCall
+    | expr DOT method=ID LPAREN (expr (COLON expr)* )? RPAREN #MethodCall
     | 'new' INT LBRACKETS expr RBRACKETS #NewBracketExpr
     | 'new' ID LPAREN RPAREN #NewObject
     | LPAREN expr RPAREN #ParentExpr
@@ -137,8 +137,8 @@ expr
     | 'true' #TrueLiteral
     | 'false' #FalseLiteral
     | 'this' #ThisLiteral
-    | value=INTEGER #IntegerLiteral //
-    | name=(ID|MAIN) #VarRefExpr //
+    | value=INTEGER #IntegerLiteral
+    | name=(ID|MAIN) #VarRefExpr
     ;
 
 
