@@ -32,7 +32,7 @@ public class TypeUtils {
         return type;
     }
 
-    private static Type getBinExprType(JmmNode binaryExpr, SymbolTable table) {
+     public static Type getBinExprType(JmmNode binaryExpr, SymbolTable table) {
         JmmNode leftOperand = binaryExpr.getChildren().get(0);
         JmmNode rightOperand = binaryExpr.getChildren().get(1);
         String operator = binaryExpr.get("op");

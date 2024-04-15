@@ -1,6 +1,7 @@
 package pt.up.fe.comp2024.analysis.passes;
 
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
+import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.Stage;
@@ -8,6 +9,8 @@ import pt.up.fe.comp2024.analysis.AnalysisVisitor;
 import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.NodeUtils;
 import pt.up.fe.specs.util.SpecsCheck;
+
+import static pt.up.fe.comp2024.ast.TypeUtils.getBinExprType;
 
 /**
  * Checks if the type of the expression in a return statement is compatible with the method return type.
@@ -74,79 +77,13 @@ public class UndeclaredVariable extends AnalysisVisitor {
     }
 
     private Void checkBinaryExpression(JmmNode binaryExpr, SymbolTable table) {
-        JmmNode leftOperand = binaryExpr.getChildren().get(0);
-        JmmNode rightOperand = binaryExpr.getChildren().get(1);
-        String operationKindString = binaryExpr.getKind();
-        Kind operationKind = Kind.fromString(operationKindString);
-
-        switch (operationKind) {
-            case ADD:
-                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
-                    addError("Operands of ADD operation must be of type int", binaryExpr);
-                }
-                break;
-            case SUB:
-                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
-                    addError("Operands of SUB operation must be of type int", binaryExpr);
-                }
-                break;
-            case MUL:
-                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
-                    addError("Operands of MUL operation must be of type int", binaryExpr);
-                }
-                break;
-            case DIV:
-                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
-                    addError("Operands of DIV must be of type int", binaryExpr);
-                }
-                break;
-            case AND:
-                if (!isBoolean(leftOperand, table) || !isBoolean(rightOperand, table)) {
-                    addError("Operands of logical AND operation must be of type boolean", binaryExpr);
-                }
-                break;
-            case LESS:
-                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
-                    addError("Operands of less-than operation must be of type int", binaryExpr);
-                }
-                break;
-            case MORE:
-                if (!isInt(leftOperand, table) || !isInt(rightOperand, table)) {
-                    addError("Operands of more-than operation must be of type int", binaryExpr);
-                }
-                break;
-            case OR:
-                if (!isBoolean(leftOperand, table) || !isBoolean(rightOperand, table)) {
-                    addError("Operands of logical OR operation must be of type boolean", binaryExpr);
-                }
-                break;
+        try {
+            Type resultType = getBinExprType(binaryExpr, table);
+        } catch (RuntimeException e) {
+            addError(e.getMessage(), binaryExpr);
         }
 
         return null;
-    }
-
-    private boolean isInt(JmmNode node, SymbolTable table) {
-        if (node.getKind().equals("INTEGER_LITERAL")) {
-            return true;
-        }
-        if (node.getKind().equals("INT")) {
-            return true;
-        }
-        return false;
-    }
-
-    private boolean isBoolean(JmmNode node, SymbolTable table) {
-        if (node.getKind().equals("BOOL")) {
-            return true;
-        }
-        if (node.getKind().equals("TRUE_LITERAL") || node.getKind().equals("FALSE_LITERAL")) {
-            return true;
-        }
-        return false;
-    }
-
-    private boolean isOp(JmmNode node, SymbolTable table){
-        return true;
     }
 
     private void addError(String message, JmmNode node) {
