@@ -19,6 +19,7 @@ public enum Kind {
     BINARY_EXPR,
     INTEGER_LITERAL,
     SIMPLE_EXPR_STMT,
+    METHOD_CALL,
 
     IMPORT_DECLARATION, //
 

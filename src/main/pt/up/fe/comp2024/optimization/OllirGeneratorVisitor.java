@@ -45,6 +45,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(BINARY_EXPR, this::visitBinaryExpr);
         addVisit(VAR_REF_EXPR, this::visitVarRefExpr);
         addVisit(SIMPLE_EXPR_STMT, this::visitSimpleExpr);
+        addVisit(METHOD_CALL, this::visitMethodCall);
 
         addVisit(TYPE, this::defaultVisit);
 
@@ -53,9 +54,43 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         setDefaultVisit(this::defaultVisit);
     }
 
+    //visit method for method call
+    private String visitMethodCall(JmmNode node, Void unused) {
+        // Get the method name
+        String methodName = node.get("method");
+
+        // Get the object on which the method is called
+        JmmNode objectNode = node.getJmmChild(0);
+        String object = objectNode.get("name");
+
+        // Get the argument passed to the method
+        JmmNode argNode = node.getJmmChild(1);
+        String arg = visit(argNode);
+
+        // Check if the object is in the imports using the symbol table
+        boolean isImported = table.getImports().contains("[" + object + "]");
+
+        // Generate the OLLIR code
+        String ollirCode;
+        if (isImported) {
+            ollirCode = "invokestatic(" + object + ", \"" + methodName + "\", " + arg + ").V;";
+        } else {
+            ollirCode = "invokevirtual(" + object + ", \"" + methodName + "\", " + arg + ").V;";
+        }
+
+        return ollirCode;
+    }
+
     //visit method for simple expr statements
     private String visitSimpleExpr(JmmNode node, Void unused) {
-        return visit(node.getJmmChild(0));
+        // Get the child node
+        JmmNode childNode = node.getJmmChild(0);
+
+        // Visit the child node
+        String result = visit(childNode);
+
+        // Return the result
+        return result;
     }
 
     //visit method for import statements

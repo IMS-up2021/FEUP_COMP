@@ -77,12 +77,11 @@ extendsDecl
 
 varDecl
     : type name=(ID|MAIN) SEMI //int a;
-    | type name=(ID|MAIN) op=LBRACKETS op=RBRACKETS SEMI // int a[];
     ;
 
 type
     : declaration= INT LBRACKETS RBRACKETS #Array
-    | declaration= INT '...' #Varchar
+    | declaration= INT '...' #Varargs
     | declaration= BOOL #Bool
     | declaration= INT #Int
     | declaration= STRING #String
@@ -129,7 +128,7 @@ expr
     | expr op= AND expr #BinaryExpr
     | expr LBRACKETS expr RBRACKETS #BracketExpr
     | expr DOT 'length' #LengthExpr
-    | expr DOT method=ID LPAREN (expr (COLON expr)* )? RPAREN #MethodCall
+    | target=expr DOT method=ID LPAREN (expr (COLON expr)* )? RPAREN #MethodCall
     | 'new' INT LBRACKETS expr RBRACKETS #NewBracketExpr
     | 'new' ID LPAREN RPAREN #NewObject
     | LPAREN expr RPAREN #ParentExpr
