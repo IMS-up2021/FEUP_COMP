@@ -73,7 +73,7 @@ public class OllirTest {
 
     public void compileBasic(ClassUnit classUnit) {
         // Test name of the class and super
-        //add a print to check that the code gets here
+        // Add a print to check that the code gets here
         System.out.println("arrived here #1");
         assertEquals("Class name not what was expected", "CompileBasic", classUnit.getClassName());
         assertEquals("Super class name not what was expected", "Quicksort", classUnit.getSuperClass());
