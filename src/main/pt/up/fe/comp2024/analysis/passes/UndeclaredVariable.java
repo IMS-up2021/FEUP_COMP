@@ -145,7 +145,9 @@ public class UndeclaredVariable extends AnalysisVisitor {
         return false;
     }
 
-    //private boolean isOp(JmmNode node, SymbolTable table);
+    private boolean isOp(JmmNode node, SymbolTable table){
+        return true;
+    }
 
     private void addError(String message, JmmNode node) {
         int line = NodeUtils.getLine(node);
@@ -166,6 +168,7 @@ public class UndeclaredVariable extends AnalysisVisitor {
         );
     }
 
+    /*
     private void checkExpression(JmmNode exprNode, SymbolTable table) {
         switch (exprNode.getKind()) {
             case "ARRAY_ACCESS":
@@ -229,7 +232,7 @@ public class UndeclaredVariable extends AnalysisVisitor {
             addError("Cannot use 'this' as an object in this context", thisExprNode);
         }
     }
-/*
+
     private boolean isAssignable(String leftType, String rightType) {
         // Implementar lógica para verificar se o tipo do operando à esquerda é compatível com o tipo do operando à direita
     }
