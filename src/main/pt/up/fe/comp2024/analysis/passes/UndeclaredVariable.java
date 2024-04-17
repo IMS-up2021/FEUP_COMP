@@ -10,7 +10,8 @@ import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.NodeUtils;
 import pt.up.fe.specs.util.SpecsCheck;
 
-import static pt.up.fe.comp2024.ast.TypeUtils.getBinExprType;
+import static com.sun.source.tree.Tree.Kind.ARRAY_ACCESS;
+import static pt.up.fe.comp2024.ast.TypeUtils.*;
 
 /**
  * Checks if the type of the expression in a return statement is compatible with the method return type.
@@ -26,6 +27,9 @@ public class UndeclaredVariable extends AnalysisVisitor {
         addVisit(Kind.METHOD_DECL, this::visitMethodDecl);
         addVisit(Kind.VAR_REF_EXPR, this::visitVarRefExpr);
         addVisit(Kind.BINARY_EXPR, this::checkBinaryExpression);
+        addVisit(Kind.UNARY_EXPR, this::checkUnaryExpr);
+        addVisit(Kind.ARRAY_ACCESS, this::checkArrayAccess);
+        addVisit(Kind.ASSIGN_STMT, this::checkAssignment);
     }
 
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
@@ -86,6 +90,15 @@ public class UndeclaredVariable extends AnalysisVisitor {
         return null;
     }
 
+    private Void checkUnaryExpr(JmmNode exprNode, SymbolTable table) {
+        try {
+            Type resultType = getUnaryExprType(exprNode, table);
+        } catch (RuntimeException e) {
+            addError(e.getMessage(), exprNode);
+        }
+        return null;
+    }
+
     private void addError(String message, JmmNode node) {
         int line = NodeUtils.getLine(node);
         int column = NodeUtils.getColumn(node);
@@ -105,73 +118,41 @@ public class UndeclaredVariable extends AnalysisVisitor {
         );
     }
 
-    /*
-    private void checkExpression(JmmNode exprNode, SymbolTable table) {
-        switch (exprNode.getKind()) {
-            case "ARRAY_ACCESS":
-                checkArrayAccess(exprNode, table);
-                break;
-            default:
-                // Handle other expression types if needed
-                break;
-        }
-    }
-
-    private void checkArrayAccess(JmmNode arrayAccessNode, SymbolTable table) {
+    private Void checkArrayAccess(JmmNode arrayAccessNode, SymbolTable table) {
         JmmNode arrayExpr = arrayAccessNode.getChildren().get(0);
         JmmNode indexExpr = arrayAccessNode.getChildren().get(1);
-
-        if (!isArray(arrayExpr, table)) {
+        Type arrayType = getVarExprType(arrayExpr, table);
+        if (!arrayType.isArray()) {
             addError("Array access is done over a non-array type", arrayAccessNode);
         }
-        if (!isInt(indexExpr, table)) {
+        Type indexType = getVarExprType(indexExpr, table);
+        if (!"int".equals(indexType.getName())) {
             addError("Array access index is not of integer type", indexExpr);
         }
+        return null;
     }
 
-    private boolean isArray(JmmNode exprNode, SymbolTable table) {
-        String exprType = table.getExpressionType(exprNode);
+    private Void checkAssignment(JmmNode node, SymbolTable table) {
+        JmmNode leftOperand = node.getChildren().get(0);
+        Type leftType = getVarExprType(leftOperand, table);
 
-        return exprType != null && exprType.endsWith("[]");
-    }
+        JmmNode rightOperand = node.getChildren().get(1);
+        Type rightType = getVarExprType(rightOperand, table);
 
-    private void checkAssignment(JmmNode assignNode, JmmSymbolTable symbolTable) {
-        JmmNode leftExpr = assignNode.getChildren().get(0);
-        JmmNode rightExpr = assignNode.getChildren().get(1);
-
-        String leftExprType = symbolTable.getExpressionType(leftExpr);
-        String rightExprType = symbolTable.getExpressionType(rightExpr);
-
-        if (!isAssignable(leftExprType, rightExprType)) {
-            addError("Type of the assignee is not compatible with the assigned", assignNode);
+        if (!isAssignable(leftType, rightType)) {
+            addError("Type of the assignee is not compatible with the assigned", node);
         }
+
+        return null;
     }
 
-    private void checkCondition(JmmNode conditionNode, JmmSymbolTable symbolTable) {
-        String conditionType = symbolTable.getExpressionType(conditionNode);
 
-        if (!"boolean".equals(conditionType)) {
-            addError("Expression in condition must return a boolean", conditionNode);
+    private boolean isAssignable(Type leftType, Type rightType) {
+        // If either type is null, assignment is not possible
+        if (leftType == null || rightType == null) {
+            return false;
         }
+        // Use the areTypesAssignable function to check whether types are assignable
+        return areTypesAssignable(rightType, leftType);
     }
-
-    private void checkThisExpression(JmmNode thisExprNode, JmmSymbolTable symbolTable) {
-        if (symbolTable.isStaticMethod()) {
-            addError("Cannot use 'this' expression in a static method", thisExprNode);
-        }
-    }
-
-    private void checkThisAsObject(JmmNode thisExprNode, JmmSymbolTable symbolTable) {
-        String className = symbolTable.getClassName();
-        String exprClassName = symbolTable.getExpressionType(thisExprNode);
-
-        if (exprClassName != null && !className.equals(exprClassName) && !symbolTable.isSuperClass(className, exprClassName)) {
-            addError("Cannot use 'this' as an object in this context", thisExprNode);
-        }
-    }
-
-    private boolean isAssignable(String leftType, String rightType) {
-        // Implementar lógica para verificar se o tipo do operando à esquerda é compatível com o tipo do operando à direita
-    }
-    */
 }
