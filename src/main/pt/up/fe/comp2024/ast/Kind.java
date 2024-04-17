@@ -9,6 +9,7 @@ import java.util.Set;
 public enum Kind {
     PROGRAM,
     CLASS_DECL,
+    EXTENDS_DECL,
     VAR_DECL,
     TYPE,
     METHOD_DECL,
@@ -17,8 +18,10 @@ public enum Kind {
     RETURN_STMT,
     BINARY_EXPR,
     INTEGER_LITERAL,
+    SIMPLE_EXPR_STMT,
+    METHOD_CALL,
 
-    IMPORT_DECLARARION, //
+    IMPORT_DECLARATION, //
 
     UNARY_EXPR, //
 
