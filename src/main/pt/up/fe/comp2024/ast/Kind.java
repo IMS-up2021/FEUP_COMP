@@ -20,6 +20,10 @@ public enum Kind {
     IMPORT_DECLARARION,
     UNARY_EXPR,
     VAR_REF_EXPR,
+    EXTENDS_DECL,
+    IMPORT_DECLARATION,
+    SIMPLE_EXPR_STMT,
+    METHOD_CALL,
     ARRAY_ACCESS;
 
     private static final Set<Kind> STATEMENTS = Set.of(ASSIGN_STMT, RETURN_STMT);
