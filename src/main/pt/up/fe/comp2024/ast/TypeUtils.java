@@ -75,7 +75,7 @@ public class TypeUtils {
     public static Type getVarExprType(JmmNode varRefExpr, SymbolTable table) {
         String varName = varRefExpr.get("name");
         // Checks if the variable is present in the local variables of the current method
-        for (Symbol localVar : table.getLocalVariables(table.getClassName() + "." + varName)) {
+        for (Symbol localVar : table.getLocalVariables(varRefExpr.getParent().getParent().get("name")) ){
             if (localVar.getName().equals(varName)) {
                 return localVar.getType();
             }
