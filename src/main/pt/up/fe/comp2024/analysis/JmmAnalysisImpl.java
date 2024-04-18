@@ -22,7 +22,9 @@ public class JmmAnalysisImpl implements JmmAnalysis {
 
         this.analysisPasses = List.of(new UndeclaredVariable());
 
+
     }
+
 
     @Override
     public JmmSemanticsResult semanticAnalysis(JmmParserResult parserResult) {
@@ -51,4 +53,6 @@ public class JmmAnalysisImpl implements JmmAnalysis {
 
         return new JmmSemanticsResult(parserResult, table, reports);
     }
+
+
 }

@@ -30,6 +30,7 @@ public class UndeclaredVariable extends AnalysisVisitor {
         addVisit(Kind.UNARY_EXPR, this::checkUnaryExpr);
         addVisit(Kind.ARRAY_ACCESS, this::checkArrayAccess);
         addVisit(Kind.ASSIGN_STMT, this::checkAssignment);
+        addVisit(Kind.IF_ELSE_STMT, this::visitIfElseStmt);
     }
 
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
@@ -155,4 +156,36 @@ public class UndeclaredVariable extends AnalysisVisitor {
         // Use the areTypesAssignable function to check whether types are assignable
         return areTypesAssignable(rightType, leftType);
     }
+
+
+
+    //need to be recursive as well
+    private Void visitIfElseStmt(JmmNode node, SymbolTable table) {
+        JmmNode Condition = node.getChildren().get(0);
+        System.out.println(Condition.get("op")); //BinaryExpr (op: +)
+
+        if (Condition.get("op").equals('+') || Condition.get("op").equals('-')
+        || Condition.get("op").equals('/') || Condition.get("op").equals('*') ){
+            addError("If condition doesn't support non boolean operations", Condition);
+        }
+
+
+        JmmNode leftOp = Condition.getChild(0);
+        JmmNode rightOp = Condition.getChild(1);
+
+        System.out.println(leftOp.getKind().equals("IntegerLiteral"));
+
+
+        if (leftOp.getKind().equals("TrueLiteral") || rightOp.getKind().equals("FalseLiteral")) {
+        }
+        else {
+            addError("Type of the condition is not boolean", Condition);
+        }
+
+
+
+    return null;
+    }
+
+
 }
