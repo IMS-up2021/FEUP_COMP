@@ -3,9 +3,11 @@ package pt.up.fe.comp2024.analysis.passes;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
+import pt.up.fe.comp.jmm.ast.JmmNodeImpl;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2024.analysis.AnalysisVisitor;
+import pt.up.fe.comp2024.analysis.JmmAnalysisImpl;
 import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.NodeUtils;
 import pt.up.fe.specs.util.SpecsCheck;
@@ -168,6 +170,27 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
         JmmNode rightOperand = node.getChildren().get(1);
         Type rightType = getVarExprType(rightOperand, table);
+
+
+        //arraycase
+
+        if (leftType.isArray() && rightType.isArray()) {
+            boolean flag = true;
+            if (leftType.getName().equals("int")) {
+                flag = rightOperand.getChildren().stream()
+                        .allMatch(arrElement -> arrElement.getKind().equals("IntegerLiteral"));
+            }
+            if (leftType.getName().equals("boolean")) {
+                flag = rightOperand.getChildren().stream()
+                        .allMatch(arrElement -> arrElement.getKind().equals("TrueLiteral") || arrElement.getKind().equals("FalseLiteral"));
+            }
+
+
+            if (flag == false){
+                addError("Array is incorrectly assigned with diferent type", node);
+            }
+        }
+
 
         Type helperType = new Type(table.getSuper(), false);
 
