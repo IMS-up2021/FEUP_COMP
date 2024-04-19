@@ -31,6 +31,34 @@ public class UndeclaredVariable extends AnalysisVisitor {
         addVisit(Kind.ARRAY_ACCESS, this::checkArrayAccess);
         addVisit(Kind.ASSIGN_STMT, this::checkAssignment);
         addVisit(Kind.IF_ELSE_STMT, this::visitIfElseStmt);
+        addVisit(Kind.METHOD_CALL, this::checkMethodCall);
+    }
+
+
+    private Void checkMethodCall(JmmNode methodCall, SymbolTable table) {
+        String methodName = methodCall.get("method");
+        JmmNode target = methodCall.getChild(0);
+
+        // Get the type of the target
+        Type targetType = getVarExprType(target, table);
+
+        // Check if the target type is in the imports
+        if (isImportedClass(targetType.getName(), table)) {
+            return null;
+        }
+
+        // Check if the target type is the class or superclass
+        String superClass = table.getSuper();
+        if (superClass != null && (targetType.getName().equals(table.getClassName()) || targetType.getName().equals(superClass))) {
+            return null;
+        }
+
+        table.getMethods()
+                .stream()
+                .filter(method -> method.equals(methodName))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Method not found: " + methodName));
+        return null;
     }
 
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
@@ -77,8 +105,9 @@ public class UndeclaredVariable extends AnalysisVisitor {
     }
 
     private boolean isImportedClass(String varName, SymbolTable table) {
+        //
         return table.getImports().stream()
-                .anyMatch(importedClass -> importedClass.endsWith("." + varName));
+                .anyMatch(imported -> (imported.endsWith(", " + varName + "]") || imported.equals("[" + varName + "]")));
     }
 
     private Void checkBinaryExpression(JmmNode binaryExpr, SymbolTable table) {
@@ -140,8 +169,14 @@ public class UndeclaredVariable extends AnalysisVisitor {
         JmmNode rightOperand = node.getChildren().get(1);
         Type rightType = getVarExprType(rightOperand, table);
 
-        if (!isAssignable(leftType, rightType)) {
-            addError("Type of the assignee is not compatible with the assigned", node);
+        Type helperType = new Type(table.getSuper(), false);
+
+        boolean isLeftAssignableToSuper = areTypesAssignable(leftType, helperType);
+        boolean isRightAssignableToSuper = areTypesAssignable(rightType, helperType);
+        boolean isLeftAssignableToRight = isAssignable(leftType, rightType);
+        boolean bothImported = isImportedClass(leftType.getName(), table) && isImportedClass(rightType.getName(), table);
+        if (!(isLeftAssignableToSuper || isRightAssignableToSuper || isLeftAssignableToRight || bothImported)) {
+            addError("Type of the assignee is not compatible with the assigned or the superclass", node);
         }
 
         return null;
@@ -158,14 +193,13 @@ public class UndeclaredVariable extends AnalysisVisitor {
     }
 
 
-
     //need to be recursive as well
     private Void visitIfElseStmt(JmmNode node, SymbolTable table) {
         JmmNode Condition = node.getChildren().get(0);
         System.out.println(Condition.get("op")); //BinaryExpr (op: +)
 
         if (Condition.get("op").equals('+') || Condition.get("op").equals('-')
-        || Condition.get("op").equals('/') || Condition.get("op").equals('*') ){
+                || Condition.get("op").equals('/') || Condition.get("op").equals('*')) {
             addError("If condition doesn't support non boolean operations", Condition);
         }
 
@@ -177,14 +211,12 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
 
         if (leftOp.getKind().equals("TrueLiteral") || rightOp.getKind().equals("FalseLiteral")) {
-        }
-        else {
+        } else {
             addError("Type of the condition is not boolean", Condition);
         }
 
 
-
-    return null;
+        return null;
     }
 
 

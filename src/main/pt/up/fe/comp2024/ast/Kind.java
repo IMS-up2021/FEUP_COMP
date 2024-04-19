@@ -25,7 +25,6 @@ public enum Kind {
     SIMPLE_EXPR_STMT,
     METHOD_CALL,
     ARRAY_ACCESS,
-
     IF_ELSE_STMT;
 
     private static final Set<Kind> STATEMENTS = Set.of(ASSIGN_STMT, RETURN_STMT);

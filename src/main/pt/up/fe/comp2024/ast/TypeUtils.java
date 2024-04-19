@@ -13,7 +13,10 @@ public class TypeUtils {
     public static String getIntTypeName() {
         return INT_TYPE_NAME;
     }
-    public static String getFloatTypeName(){ return FLOAT_TYPE_NAME; }
+
+    public static String getFloatTypeName() {
+        return FLOAT_TYPE_NAME;
+    }
 
     /**
      * Gets the {@link Type} of an arbitrary expression.
@@ -52,7 +55,8 @@ public class TypeUtils {
                 return new Type(INT_TYPE_NAME, false);
             }
 
-            default -> throw new RuntimeException("Unknown operator '" + operator + "' of expression '" + binaryExpr + "'");
+            default ->
+                    throw new RuntimeException("Unknown operator '" + operator + "' of expression '" + binaryExpr + "'");
         }
     }
 
@@ -71,17 +75,28 @@ public class TypeUtils {
         return INT_TYPE_NAME.equals(type.getName()) || FLOAT_TYPE_NAME.equals(type.getName());
     }
 
-
     public static Type getVarExprType(JmmNode varRefExpr, SymbolTable table) {
+        if ("ArrayInitExpr".equals(varRefExpr.getKind())) {
+
+            return new Type("int", true);
+        }
+        if("MethodCall".equals(varRefExpr.getKind())){
+            return new Type(varRefExpr.get("type"), false);
+        }
         String varName = varRefExpr.get("name");
         // Checks if the variable is present in the local variables of the current method
-        for (Symbol localVar : table.getLocalVariables(varRefExpr.getParent().getParent().get("name")) ){
+        JmmNode parentNode = varRefExpr.getParent();
+        while (!"MethodDecl".equals(parentNode.getKind())) {
+            parentNode = parentNode.getParent();
+        }
+        String parentMethodName = parentNode.get("name");
+        for (Symbol localVar : table.getLocalVariables(parentMethodName)) {
             if (localVar.getName().equals(varName)) {
                 return localVar.getType();
             }
         }
         // Checks if the variable is present in the parameters of the current method
-        for (Symbol param : table.getParameters(table.getClassName() + "." + varName)) {
+        for (Symbol param : table.getParameters(parentMethodName)) {
             if (param.getName().equals(varName)) {
                 return param.getType();
             }
@@ -94,9 +109,12 @@ public class TypeUtils {
         }
         // Checks if the variable is present in imports
         for (String imported : table.getImports()) {
-            if (imported.endsWith("." + varName)) {
-                return new Type(imported, false);
+            if (imported.endsWith(", " + varName + "]") || imported.equals("[" + varName + "]")) {
+                return new Type(varName, false);
             }
+        }
+        if (table.getClassName().equals(varName)) {
+            return new Type(table.getClassName(), false);
         }
         throw new RuntimeException("Variable '" + varName + "' is undeclared");
     }
