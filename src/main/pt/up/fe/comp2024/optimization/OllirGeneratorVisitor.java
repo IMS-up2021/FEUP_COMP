@@ -1,5 +1,7 @@
 package pt.up.fe.comp2024.optimization;
 
+import static pt.up.fe.comp2024.ast.Kind.*;
+
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.AJmmVisitor;
@@ -7,8 +9,6 @@ import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.NodeUtils;
 import pt.up.fe.comp2024.ast.TypeUtils;
-
-import static pt.up.fe.comp2024.ast.Kind.*;
 
 /**
  * Generates OLLIR code from JmmNodes that are not expressions.
@@ -22,7 +22,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private final String L_BRACKET = " {\n";
     private final String R_BRACKET = "}\n";
 
-
     private final SymbolTable table;
 
     private final OllirExprGeneratorVisitor exprVisitor;
@@ -32,10 +31,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         exprVisitor = new OllirExprGeneratorVisitor(table);
     }
 
-
     @Override
     protected void buildVisitor() {
-
         addVisit(PROGRAM, this::visitProgram);
         addVisit(CLASS_DECL, this::visitClass);
         addVisit(EXTENDS_DECL, this::visitExtendsDecl);
@@ -56,7 +53,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(INTEGER_LITERAL, this::defaultVisit);
         setDefaultVisit(this::defaultVisit);
     }
-
 
     //visit method for method call
     private String visitMethodCall(JmmNode node, Void unused) {
@@ -165,28 +161,28 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     }
 
     private String visitAssignStmt(JmmNode node, Void unused) {
-        var lhs = visit(node.getJmmChild(0));
-        var rhs = visit(node.getJmmChild(1));
+        var lhs = exprVisitor.visit(node.getJmmChild(0));
+        var rhs = exprVisitor.visit(node.getJmmChild(1));
 
         StringBuilder code = new StringBuilder();
 
         // code to compute the children
-        code.append(lhs);
-        code.append(rhs);
+        code.append(lhs.getComputation());
+        code.append(rhs.getComputation());
 
         // code to compute self
         // statement has type of lhs
         Type thisType = TypeUtils.getExprType(node.getJmmChild(0), table);
         String typeString = OptUtils.toOllirType(thisType);
 
-        code.append(lhs);
+        code.append(lhs.getCode());
         code.append(SPACE);
 
         code.append(ASSIGN);
         code.append(typeString);
         code.append(SPACE);
 
-        code.append(rhs);
+        code.append(rhs.getCode());
 
         code.append(END_STMT);
 
@@ -390,4 +386,3 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         return "";
     }
 }
-
