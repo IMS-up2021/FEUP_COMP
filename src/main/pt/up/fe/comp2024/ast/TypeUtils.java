@@ -81,9 +81,22 @@ public class TypeUtils {
             return new Type("int", true);
         }
         if("MethodCall".equals(varRefExpr.getKind())){
-            return new Type(varRefExpr.get("type"), false);
+            if (varRefExpr.get("target").equals("ThisLiteral")){
+                Type testeee = table.getReturnType(varRefExpr.get("method"));
+                return new Type(testeee.getName(), testeee.isArray());
+            }
+            else {
+                return new Type(varRefExpr.get("type"), false);
+            }
         }
-        String varName = varRefExpr.get("name");
+
+        String varName;
+        if (varRefExpr.getKind().equals("ThisLiteral")) {
+            varName = varRefExpr.getParent().get("method");
+        }
+        else {
+            varName = varRefExpr.get("name");
+        }
         // Checks if the variable is present in the local variables of the current method
         JmmNode parentNode = varRefExpr.getParent();
         while (!"MethodDecl".equals(parentNode.getKind())) {
@@ -113,6 +126,19 @@ public class TypeUtils {
                 return new Type(varName, false);
             }
         }
+
+        // Checks if the variable is present in methods
+        for (String method : table.getMethods()) {
+            if (method.equals(varName)) {
+                return table.getReturnType(method);
+                //table.getParameters(method).
+                //return new Type(method, false);
+            }
+        }
+
+
+
+
         if (table.getClassName().equals(varName)) {
             return new Type(table.getClassName(), false);
         }
