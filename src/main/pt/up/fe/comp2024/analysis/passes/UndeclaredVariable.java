@@ -11,6 +11,7 @@ import pt.up.fe.comp2024.ast.NodeUtils;
 import pt.up.fe.specs.util.SpecsCheck;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.sun.source.tree.Tree.Kind.ARRAY_ACCESS;
@@ -67,27 +68,31 @@ public class UndeclaredVariable extends AnalysisVisitor {
         var parameters = table.getParameters(methodName);
 
         // Retrieve the list of arguments from the method call
-        var arguments = methodCall.getChildren().stream()
-                .filter(child -> "Argument".equals(child.getKind()))
-                .toList();
+        var arguments = methodCall.getChildren();
 
+        //get last parameter which is a symbol
+        var lastParam = parameters.get(parameters.size() - 1);
         // Check that the number of arguments matches the number of parameters
-        if (arguments.size() != parameters.size()) {
+        boolean isVararg = Objects.equals(lastParam.getType().getName(), "Varargs");
+        if (arguments.size() != parameters.size() && !isVararg){
             throw new RuntimeException("Number of arguments does not match number of parameters for method: " + methodName);
         }
 
         // For each argument, retrieve its type and compare it with the corresponding parameter's type
-        for (int i = 0; i < arguments.size(); i++) {
-            var argument = arguments.get(i);
-            var parameter = parameters.get(i);
+        if(!isVararg){
+            for (int i = 0; i < arguments.size(); i++) {
+                var argument = arguments.get(i);
+                var parameter = parameters.get(i);
 
-            var argumentType = getVarExprType(argument, table);
-            var parameterType = parameter.getType();
+                var argumentType = getVarExprType(argument, table);
+                var parameterType = parameter.getType();
 
-            if (!argumentType.getName().equals(parameterType.getName())) {
-                throw new RuntimeException("Type of argument does not match type of parameter for method: " + methodName);
+                if (!argumentType.getName().equals(parameterType.getName())) {
+                    throw new RuntimeException("Type of argument does not match type of parameter for method: " + methodName);
+                }
             }
         }
+
 
         return null;
     }

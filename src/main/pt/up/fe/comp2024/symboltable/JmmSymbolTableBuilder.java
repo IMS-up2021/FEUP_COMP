@@ -163,6 +163,12 @@ public class JmmSymbolTableBuilder {
                                 // Get the declaration attribute of the type node
                                 String typeDeclaration = typeNode.get("declaration");
 
+                                if (typeNode.getKind().equals("Varargs"))
+                                    return new Symbol(
+                                            new Type("Varargs", true),
+                                            param.get("name"));
+
+
                                 // Create a new Symbol with the type and name of the param
                                 return new Symbol(
                                         new Type(typeDeclaration, false),
