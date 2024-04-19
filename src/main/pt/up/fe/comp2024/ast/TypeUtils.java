@@ -80,6 +80,9 @@ public class TypeUtils {
 
             return new Type("int", true);
         }
+        if("TrueLiteral".equals(varRefExpr.getKind()) || "FalseLiteral".equals(varRefExpr.getKind())){
+            return new Type("boolean", false);
+        }
         if("MethodCall".equals(varRefExpr.getKind())){
             if (varRefExpr.get("target").equals("ThisLiteral")){
                 Type testeee = table.getReturnType(varRefExpr.get("method"));

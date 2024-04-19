@@ -3,14 +3,15 @@ package pt.up.fe.comp2024.analysis.passes;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
-import pt.up.fe.comp.jmm.ast.JmmNodeImpl;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2024.analysis.AnalysisVisitor;
-import pt.up.fe.comp2024.analysis.JmmAnalysisImpl;
 import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.NodeUtils;
 import pt.up.fe.specs.util.SpecsCheck;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.sun.source.tree.Tree.Kind.ARRAY_ACCESS;
 import static pt.up.fe.comp2024.ast.TypeUtils.*;
@@ -55,16 +56,57 @@ public class UndeclaredVariable extends AnalysisVisitor {
             return null;
         }
 
-        table.getMethods()
+        // Retrieve the method from the symbol table
+        var method = table.getMethods()
                 .stream()
-                .filter(method -> method.equals(methodName))
+                .filter(m -> m.equals(methodName))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Method not found: " + methodName));
+
+        // Retrieve the list of parameters from the method
+        var parameters = table.getParameters(methodName);
+
+        // Retrieve the list of arguments from the method call
+        var arguments = methodCall.getChildren().stream()
+                .filter(child -> "Argument".equals(child.getKind()))
+                .toList();
+
+        // Check that the number of arguments matches the number of parameters
+        if (arguments.size() != parameters.size()) {
+            throw new RuntimeException("Number of arguments does not match number of parameters for method: " + methodName);
+        }
+
+        // For each argument, retrieve its type and compare it with the corresponding parameter's type
+        for (int i = 0; i < arguments.size(); i++) {
+            var argument = arguments.get(i);
+            var parameter = parameters.get(i);
+
+            var argumentType = getVarExprType(argument, table);
+            var parameterType = parameter.getType();
+
+            if (!argumentType.getName().equals(parameterType.getName())) {
+                throw new RuntimeException("Type of argument does not match type of parameter for method: " + methodName);
+            }
+        }
+
         return null;
     }
 
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         currentMethod = method.get("name");
+
+        // Get the parameters of the method
+        List<JmmNode> parameters = method.getChildren().stream()
+                .filter(child -> "Param".equals(child.getKind()))
+                .toList();
+
+        // Check if any parameter after varargs
+        for (int i = 0; i < parameters.size(); i++) {
+            if ("Varargs".equals(parameters.get(i).getChild(0).getKind()) && i != parameters.size() - 1) {
+                throw new RuntimeException("Varargs parameter should be the last parameter");
+            }
+        }
+
         return null;
     }
 
@@ -173,7 +215,7 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
 
         //arraycase
-        if ((!leftType.isArray() && rightType.isArray()) || (leftType.isArray() && !rightType.isArray())){
+        if ((!leftType.isArray() && rightType.isArray()) || (leftType.isArray() && !rightType.isArray())) {
             addError("Array is incorrectly assigned", node);
         }
 
@@ -189,7 +231,7 @@ public class UndeclaredVariable extends AnalysisVisitor {
             }
 
 
-            if (flag == false){
+            if (flag == false) {
                 addError("Array is incorrectly assigned with diferent type", node);
             }
         }
