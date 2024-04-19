@@ -73,11 +73,9 @@ public class OllirTest {
 
     public void compileBasic(ClassUnit classUnit) {
         // Test name of the class and super
-        // Add a print to check that the code gets here
-        System.out.println("arrived here #1");
         assertEquals("Class name not what was expected", "CompileBasic", classUnit.getClassName());
         assertEquals("Super class name not what was expected", "Quicksort", classUnit.getSuperClass());
-        System.out.println("arrived here #2");
+
         // Test fields
         assertEquals("Class should have two fields", 2, classUnit.getNumFields());
         var fieldNames = new HashSet<>(Arrays.asList("intField", "boolField"));
@@ -111,7 +109,7 @@ public class OllirTest {
         assertTrue("Could not find a return instruction in method2", retInst2.isPresent());
     }
 
-    public void   compileArithmetic(ClassUnit classUnit) {
+    public void compileArithmetic(ClassUnit classUnit) {
         // Test name of the class
         assertEquals("Class name not what was expected", "CompileArithmetic", classUnit.getClassName());
 
