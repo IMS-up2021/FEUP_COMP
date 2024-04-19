@@ -1,4 +1,4 @@
-import B;
+import C.B;
 
 class ObjectAssignmentPassExtends extends B {
 

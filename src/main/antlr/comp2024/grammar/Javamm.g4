@@ -117,28 +117,26 @@ stmt
     ;
 
 
-
-
-
 expr
     : op=NEG expr #UnaryExpr
     | expr op= (MUL|DIV) expr #BinaryExpr //
     | expr op= (ADD|SUB) expr #BinaryExpr //
     | expr op=LESS expr #BinaryExpr
     | expr op= AND expr #BinaryExpr
+    | LBRACKETS (expr (COLON expr)*)? RBRACKETS #ArrayInitExpr
     | expr LBRACKETS expr RBRACKETS #BracketExpr
     | expr DOT 'length' #LengthExpr
     | target=expr DOT method=ID LPAREN (expr (COLON expr)* )? RPAREN #MethodCall
     | 'new' INT LBRACKETS expr RBRACKETS #NewBracketExpr
-    | 'new' ID LPAREN RPAREN #NewObject
+    | 'new' name=ID LPAREN RPAREN #NewObject
     | LPAREN expr RPAREN #ParentExpr
-    | LBRACKETS (expr (COLON expr)*)? RBRACKETS #ArgumentsExpr
     | 'true' #TrueLiteral
     | 'false' #FalseLiteral
     | 'this' #ThisLiteral
     | value=INTEGER #IntegerLiteral
     | name=(ID|MAIN) #VarRefExpr
     ;
+
 
 
 
