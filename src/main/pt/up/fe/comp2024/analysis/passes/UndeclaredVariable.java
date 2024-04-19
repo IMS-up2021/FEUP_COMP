@@ -173,6 +173,9 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
 
         //arraycase
+        if ((!leftType.isArray() && rightType.isArray()) || (leftType.isArray() && !rightType.isArray())){
+            addError("Array is incorrectly assigned", node);
+        }
 
         if (leftType.isArray() && rightType.isArray()) {
             boolean flag = true;
