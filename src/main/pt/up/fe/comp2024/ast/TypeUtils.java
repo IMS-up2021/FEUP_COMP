@@ -99,6 +99,9 @@ public class TypeUtils {
         } else if (varRefExpr.getKind().equals("IntegerLiteral")) {
             varName = varRefExpr.get("value");
             return new Type(varName, false);
+        } else if (varRefExpr.getKind().equals("NewBracketExpr")){
+            varName = varRefExpr.getChild(0).get("value");
+            return new Type(varName, true);
         }
         else {
             varName = varRefExpr.get("name");
