@@ -45,6 +45,7 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
         // Get the type of the target
         Type targetType = getVarExprType(target, table);
+        if (targetType == null) { addError("Variable is undeclared is undeclared", methodCall); return null;}
 
         // Check if the target type is in the imports
         if (isImportedClass(targetType.getName(), table)) {
@@ -62,7 +63,12 @@ public class UndeclaredVariable extends AnalysisVisitor {
                 .stream()
                 .filter(m -> m.equals(methodName))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Method not found: " + methodName));
+                .orElse(null);
+
+        if (method == null) {
+            addError("Method not found", methodCall);
+            return null;
+        }
 
         // Retrieve the list of parameters from the method
         var parameters = table.getParameters(methodName);
@@ -75,7 +81,8 @@ public class UndeclaredVariable extends AnalysisVisitor {
         // Check that the number of arguments matches the number of parameters
         boolean isVararg = Objects.equals(lastParam.getType().getName(), "Varargs");
         if (arguments.size() != parameters.size() && !isVararg){
-            throw new RuntimeException("Number of arguments does not match number of parameters for method: " + methodName);
+            addError("Number of arguments does not match number of parameters for method: " + methodName, methodCall);
+            return null; //throw new RuntimeException("Number of arguments does not match number of parameters for method: " + methodName);
         }
 
         // For each argument, retrieve its type and compare it with the corresponding parameter's type
@@ -108,7 +115,8 @@ public class UndeclaredVariable extends AnalysisVisitor {
         // Check if any parameter after varargs
         for (int i = 0; i < parameters.size(); i++) {
             if ("Varargs".equals(parameters.get(i).getChild(0).getKind()) && i != parameters.size() - 1) {
-                throw new RuntimeException("Varargs parameter should be the last parameter");
+                addError("Varargs parameter should be the last parameter", method);
+                //throw new RuntimeException("Varargs parameter should be the last parameter");
             }
         }
 
@@ -119,6 +127,9 @@ public class UndeclaredVariable extends AnalysisVisitor {
         SpecsCheck.checkNotNull(currentMethod, () -> "Expected current method to be set");
 
         String varRefName = varRefExpr.get("name");
+
+
+
 
         // Check if variable is declared in current method
         if (!isDeclaredLocally(varRefName, table)) {
@@ -217,6 +228,7 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
         JmmNode rightOperand = node.getChildren().get(1);
         Type rightType = getVarExprType(rightOperand, table);
+
 
 
         //arraycase

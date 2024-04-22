@@ -96,6 +96,9 @@ public class TypeUtils {
         String varName;
         if (varRefExpr.getKind().equals("ThisLiteral")) {
             varName = varRefExpr.getParent().get("method");
+        } else if (varRefExpr.getKind().equals("IntegerLiteral")) {
+            varName = varRefExpr.get("value");
+            return new Type(varName, false);
         }
         else {
             varName = varRefExpr.get("name");
@@ -145,7 +148,8 @@ public class TypeUtils {
         if (table.getClassName().equals(varName)) {
             return new Type(table.getClassName(), false);
         }
-        throw new RuntimeException("Variable '" + varName + "' is undeclared");
+
+        return null; //throw new RuntimeException("Variable '" + varName + "' is undeclared");
     }
 
     /**
