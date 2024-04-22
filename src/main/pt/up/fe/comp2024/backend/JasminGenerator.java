@@ -33,6 +33,8 @@ public class JasminGenerator {
 
     Method currentMethod;
 
+    ClassUnit classUnit;
+
     private final FunctionClassMap<TreeNode, String> generators;
 
     public JasminGenerator(OllirResult ollirResult) {
@@ -41,6 +43,7 @@ public class JasminGenerator {
         reports = new ArrayList<>();
         code = null;
         currentMethod = null;
+        classUnit = null;
 
         this.generators = new FunctionClassMap<>();
         generators.put(ClassUnit.class, this::generateClassUnit);
@@ -77,6 +80,7 @@ public class JasminGenerator {
 
         // generate class name
         var className = ollirResult.getOllirClass().getClassName();
+        this.classUnit = ollirResult.getOllirClass();
         code.append(".class public ").append(className).append(NL).append(NL);
 
         // TODO: Hardcoded to Object, needs to be expanded
@@ -110,6 +114,8 @@ public class JasminGenerator {
         var defaultConstructor1 = """
                 ;default constructor
                 .method public <init>()V
+                    .limit stack 99
+                    .limit locals 99
                     aload_0
                 """;
 
@@ -181,14 +187,20 @@ public class JasminGenerator {
         code.append(TAB).append(".limit stack 99").append(NL);
         code.append(TAB).append(".limit locals 99").append(NL);
 
+        //code.append("invokestatic ioPlus/printHelloWorld()V");
+
         for (var inst : method.getInstructions()) {
+            //var instructionType = inst.getInstType();
+
+            //code.append(inst.getInstType());
+            //code.append(inst.getInstType());
+
             System.out.println(inst.getInstType());
             var instCode = StringLines.getLines(generators.apply(inst)).stream()
                     .collect(Collectors.joining(NL + TAB, TAB, NL));
 
             code.append(instCode);
         }
-
 
 
         code.append(".end method\n");
@@ -198,6 +210,21 @@ public class JasminGenerator {
 
         return code.toString();
     }
+
+    /*
+    ASSIGN,
+    CALL,
+    GOTO,
+    BRANCH,
+    RETURN,
+    PUTFIELD,
+    GETFIELD,
+    UNARYOPER,
+    BINARYOPER,
+    NOPER;
+     */
+
+
 
 
 
@@ -257,7 +284,7 @@ public class JasminGenerator {
                 }
 
                 if (true_operand != null && true_element != null && operand.getName().equals(assign.getDest()) &&
-                        this.between(Integer.parseInt(true_element.getLiteral()), -128, 127)) {
+                        between(Integer.parseInt(true_element.getLiteral()), -128, 127)) {
                     return "\tiinc " + reg.get(operand.getName()).getVirtualReg() + " " + Integer.parseInt(true_element.getLiteral()) + "\n";
                 }
             }
@@ -591,18 +618,193 @@ public class JasminGenerator {
 
         var code = new StringBuilder();
 
+
+        // Load static method arguments onto the operand stack
+        for (Element staticElement : instruction.getOperands()) {
+            code.append(loadVariable(staticElement));
+        }
+
+
+
+        //instruction.getArguments().get(0);
+        // Append bytecode instruction to invoke static method
+        Operand first = (Operand) instruction.getCaller();//instruction.getArguments().get(0);
+        LiteralElement second = (LiteralElement) instruction.getMethodName();//instruction.getArguments().get(1);
+        code.append("\tinvokestatic ").append(getImportedClassName(first.getName()))
+                .append("/").append(second.getLiteral().replace("\"", ""));
+
+        // Append bytecode instructions for method arguments and return type
+        code.append("(");
+        /*
+        for (Element element : instruction.getOperands()) {
+            code.append(getType(element.getType().getTypeOfElement()));
+        }
+         */
+        code.append(")").append(getType(instruction.getReturnType().getTypeOfElement())).append("\n");
+
+
+
         return code.toString();
     }
 
 
-    /*
-    private String loadVariable(Map<String, Descriptor> table, Element element) {
-        if (element instanceof LiteralElement) return this.loadLiteralVariable(table, (LiteralElement) element) + "\n";
-        if (element instanceof ArrayOperand) return this.loadArrayVariable(table, (ArrayOperand) element) + "\n";
-        if (element instanceof Operand) return this.loadOperandVariable(table, (Operand) element) + "\n";
-        return null;
+
+
+    private String loadVariable(Element element) {
+
+        var code = new StringBuilder();
+
+        if (element instanceof LiteralElement) code.append(loadLiteral((LiteralElement) element) + NL);
+        if (element instanceof ArrayOperand) code.append(loadArray((ArrayOperand) element) + NL);
+        if (element instanceof Operand) code.append(loadOperand((Operand) element) + NL);
+
+        return code.toString();
+
     }
+
+
+    private String loadLiteral(LiteralElement element) {
+
+        var code = new StringBuilder();
+
+        String literal = element.getLiteral();
+        ElementType elementType = element.getType().getTypeOfElement();
+        if (elementType != ElementType.INT32 && elementType != ElementType.BOOLEAN) {
+            code.append(TAB + "ldc " + literal);
+        } else {
+            int value = Integer.parseInt(literal);
+
+
+            if (between(value, -1, 5)) code.append(TAB + "iconst_");
+            else if (between(value, -128, 127)) code.append(TAB + "bipush ");
+            else if (between(value, -32768, 32767)) code.append(TAB + "sipush ");
+            else code.append(TAB + "ldc ");
+
+            if (value == -1) {
+                code.append("m1");
+            } else {
+                code.append(value);
+            }
+
+        }
+        return code.toString();
+    }
+
+
+
+    private String loadArray(ArrayOperand element) {
+
+        var code = new StringBuilder();
+
+        var table = this.currentMethod.getVarTable();
+
+        code.append(TAB + "aload" + getVarIndex(element.getName()))
+                .append(NL)
+                .append(loadVariable(element.getIndexOperands().get(0)))
+                .append(TAB + "iload");
+
+
+        return code.toString();
+
+    }
+
+    private String loadOperand(Operand operand) {
+
+        var code = new StringBuilder();
+
+        if (operand.getType().getTypeOfElement().equals(THIS)){
+            code.append("aload_0");
+        } else if (operand.getType().getTypeOfElement().equals(STRING) || operand.getType().getTypeOfElement().equals(ARRAYREF) || operand.getType().getTypeOfElement().equals(OBJECTREF)) {
+            code.append(TAB).append("load").append(getVarIndex(operand.getName()));
+        } else if (operand.getType().getTypeOfElement().equals(BOOLEAN) || operand.getType().getTypeOfElement().equals(INT32)) {
+            code.append(TAB).append("iload").append(getVarIndex(operand.getName()));
+        }
+
+
+        return code.toString();
+
+    }
+
+
+    private String getVarIndex(String variableName) {
+
+        var code = new StringBuilder();
+
+        var table = currentMethod.getVarTable();
+
+
+        if (variableName.equals("this")) {
+            code.append("_0");
+        } else {
+            var num = table.get(variableName).getVirtualReg();
+            if (num < 4){
+                code.append("_");
+            }
+            else code.append(" ");
+            code.append(num);
+        }
+
+        return code.toString();
+    }
+
+
+
+
+
+
+
+    //apagar tudo a partir daqui
+    private String getImportedClassName(String basicClassName) {
+
+        // .this object
+        if (basicClassName.equals("this"))
+            return classUnit.getClassName();
+
+
+        // imported object
+        for (String importedClass : this.classUnit.getImports()) {
+            if (importedClass.endsWith(basicClassName)) {
+                return this.normalizeClassName(importedClass);
+            }
+        }
+
+        // default object name
+        return basicClassName;
+    }
+
+
+    private String normalizeClassName(String className) {
+        return className.replaceAll("\\.", "/");
+    }
+
+
+    /*
+    private String getFieldType(Type type) {
+        return switch (type.getTypeOfElement()) {
+            case ARRAYREF -> this.getArrayType(type);
+            case OBJECTREF -> this.getObjectType(type);
+            default -> this.getType(type.getTypeOfElement());
+        };
+    }
+
      */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
