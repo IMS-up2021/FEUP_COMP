@@ -10,6 +10,9 @@ import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.NodeUtils;
 import pt.up.fe.comp2024.ast.TypeUtils;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Generates OLLIR code from JmmNodes that are not expressions.
  */
@@ -63,9 +66,12 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         JmmNode objectNode = node.getJmmChild(0);
         String object = objectNode.get("name");
 
-        // Get the argument passed to the method
-        JmmNode argNode = node.getJmmChild(1);
-        String arg = visit(argNode);
+        // Get the arguments passed to the method
+        List<String> args = new ArrayList<>();
+        for (int i = 1; i < node.getNumChildren(); i++) {
+            JmmNode argNode = node.getJmmChild(i);
+            args.add(visit(argNode));
+        }
 
         // Check if the object is in the imports using the symbol table
         boolean isImported = table.getImports().contains("[" + object + "]");
@@ -73,9 +79,9 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         // Generate the OLLIR code
         String ollirCode;
         if (isImported) {
-            ollirCode = "invokestatic(" + object + ", \"" + methodName + "\", " + arg + ").V;";
+            ollirCode = "invokestatic(" + object + ", \"" + methodName + "\"" + (args.isEmpty() ? "" : ", " + String.join(", ", args)) + ").V;";
         } else {
-            ollirCode = "invokevirtual(" + object + ", \"" + methodName + "\", " + arg + ").V;";
+            ollirCode = "invokevirtual(" + object + ", \"" + methodName + "\"" + (args.isEmpty() ? "" : ", " + String.join(", ", args)) + ").V;";
         }
 
         return ollirCode;
@@ -234,7 +240,18 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     private String visitMethodDecl(JmmNode node, Void unused) {
         if ("main".equals(node.get("name"))) {
-            return ".method public static main(args.array.String).V {\nret.V ;\n}";
+            //create string builder code
+            StringBuilder code = new StringBuilder(".method public static main(args.array.String).V {\n");
+            //add et.V ;
+            //}
+            for (int i = 0; i < node.getNumChildren(); i++) {
+                var child = node.getJmmChild(i);
+                var childCode = visit(child);
+                code.append(childCode);
+            }
+            code.append(NL);
+            code.append("ret.V ;\n}");
+            return code.toString();
         }
 
         StringBuilder code = new StringBuilder(".method ");
@@ -343,7 +360,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
             code.append(result);
         }
-
+        code.append(NL);
+        code.append(NL);
         code.append(buildConstructor());
         code.append(R_BRACKET);
 
