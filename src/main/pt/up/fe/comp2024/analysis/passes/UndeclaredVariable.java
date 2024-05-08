@@ -40,12 +40,21 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
 
     private Void checkMethodCall(JmmNode methodCall, SymbolTable table) {
+        // Retrieve the method name
         String methodName = methodCall.get("method");
+        if (methodName == null) {
+            addError("Method name attribute is missing in MethodCall node", methodCall);
+            return null;
+        }
+
         JmmNode target = methodCall.getChild(0);
 
         // Get the type of the target
         Type targetType = getVarExprType(target, table);
-        if (targetType == null) { addError("Variable is undeclared is undeclared", methodCall); return null;}
+        if (targetType == null) {
+            addError("Variable is undeclared", methodCall);
+            return null;
+        }
 
         // Check if the target type is in the imports
         if (isImportedClass(targetType.getName(), table)) {
@@ -80,13 +89,13 @@ public class UndeclaredVariable extends AnalysisVisitor {
         var lastParam = parameters.get(parameters.size() - 1);
         // Check that the number of arguments matches the number of parameters
         boolean isVararg = Objects.equals(lastParam.getType().getName(), "Varargs");
-        if (arguments.size() != parameters.size() && !isVararg){
+        if (arguments.size() != parameters.size() && !isVararg) {
             addError("Number of arguments does not match number of parameters for method: " + methodName, methodCall);
-            return null; //throw new RuntimeException("Number of arguments does not match number of parameters for method: " + methodName);
+            return null;
         }
 
         // For each argument, retrieve its type and compare it with the corresponding parameter's type
-        if(!isVararg){
+        if (!isVararg) {
             for (int i = 0; i < arguments.size(); i++) {
                 var argument = arguments.get(i);
                 var parameter = parameters.get(i);
@@ -95,14 +104,15 @@ public class UndeclaredVariable extends AnalysisVisitor {
                 var parameterType = parameter.getType();
 
                 if (!argumentType.getName().equals(parameterType.getName())) {
-                    throw new RuntimeException("Type of argument does not match type of parameter for method: " + methodName);
+                    addError("Type of argument does not match type of parameter for method: " + methodName, methodCall);
+                    return null;
                 }
             }
         }
 
-
         return null;
     }
+
 
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         currentMethod = method.get("name");
@@ -127,9 +137,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
         SpecsCheck.checkNotNull(currentMethod, () -> "Expected current method to be set");
 
         String varRefName = varRefExpr.get("name");
-
-
-
 
         // Check if variable is declared in current method
         if (!isDeclaredLocally(varRefName, table)) {
@@ -165,7 +172,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
     }
 
     private boolean isImportedClass(String varName, SymbolTable table) {
-        //
         return table.getImports().stream()
                 .anyMatch(imported -> (imported.endsWith(", " + varName + "]") || imported.equals("[" + varName + "]")));
     }
