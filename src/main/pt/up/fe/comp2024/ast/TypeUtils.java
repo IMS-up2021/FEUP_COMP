@@ -77,36 +77,51 @@ public class TypeUtils {
 
     public static Type getVarExprType(JmmNode varRefExpr, SymbolTable table) {
         if ("ArrayInitExpr".equals(varRefExpr.getKind())) {
-
             return new Type("int", true);
         }
-        if("TrueLiteral".equals(varRefExpr.getKind()) || "FalseLiteral".equals(varRefExpr.getKind())){
+        if ("TrueLiteral".equals(varRefExpr.getKind()) || "FalseLiteral".equals(varRefExpr.getKind())) {
             return new Type("boolean", false);
         }
-        if("MethodCall".equals(varRefExpr.getKind())){
-            if (varRefExpr.get("target").equals("ThisLiteral")){
-                Type testeee = table.getReturnType(varRefExpr.get("method"));
-                return new Type(testeee.getName(), testeee.isArray());
-            }
-            else {
-                return new Type(varRefExpr.get("type"), false);
-            }
+        if ("MethodCall".equals(varRefExpr.getKind())) {
+            String methodName = varRefExpr.get("method");
+            Type returnType = table.getReturnType(methodName);
+            return new Type(returnType.getName(), returnType.isArray());
         }
-
         String varName;
-        if (varRefExpr.getKind().equals("ThisLiteral")) {
-            varName = varRefExpr.getParent().get("method");
-        } else if (varRefExpr.getKind().equals("IntegerLiteral")) {
-            varName = varRefExpr.get("value");
-            return new Type(varName, false);
-        } else if (varRefExpr.getKind().equals("NewBracketExpr")){
-            varName = varRefExpr.getChild(0).get("value");
-            return new Type(varName, true);
+        switch (varRefExpr.getKind()) {
+            case "ThisLiteral":
+                varName = varRefExpr.getParent().get("method");
+                break;
+            case "IntegerLiteral":
+                varName = varRefExpr.get("value");
+                return new Type(varName, false);
+            case "NewBracketExpr":
+                varName = varRefExpr.getChild(0).get("value");
+                return new Type(varName, true);
+            case "BinaryExpr":
+                String operator = varRefExpr.get("op");
+                JmmNode leftOperand = varRefExpr.getChildren().get(0);
+                JmmNode rightOperand = varRefExpr.getChildren().get(1);
+                Type leftType = getVarExprType(leftOperand, table);
+                Type rightType = getVarExprType(rightOperand, table);
+
+                switch (operator) {
+                    case "+":
+                    case "-":
+                    case "*":
+                    case "/":
+                        // Arithmetic operators
+                        if (leftType.getName().equals("int") && rightType.getName().equals("int")) {
+                            return new Type("int", false);
+                        } else {
+                            throw new RuntimeException("Incompatible types for arithmetic operation: " + leftType + " and " + rightType);
+                        }
+                }
+            default:
+                varName = varRefExpr.get("name");
+                break;
         }
-        else {
-            varName = varRefExpr.get("name");
-        }
-        // Checks if the variable is present in the local variables of the current method
+        // Check local variables
         JmmNode parentNode = varRefExpr.getParent();
         while (!"MethodDecl".equals(parentNode.getKind())) {
             parentNode = parentNode.getParent();
@@ -117,41 +132,33 @@ public class TypeUtils {
                 return localVar.getType();
             }
         }
-        // Checks if the variable is present in the parameters of the current method
+        // Check parameters
         for (Symbol param : table.getParameters(parentMethodName)) {
             if (param.getName().equals(varName)) {
                 return param.getType();
             }
         }
-        // Checks whether the variable is present in the fields of the current class or its superclasses
+        // Check fields
         for (Symbol field : table.getFields()) {
             if (field.getName().equals(varName)) {
                 return field.getType();
             }
         }
-        // Checks if the variable is present in imports
+        // Check imports
         for (String imported : table.getImports()) {
             if (imported.endsWith(", " + varName + "]") || imported.equals("[" + varName + "]")) {
                 return new Type(varName, false);
             }
         }
-
-        // Checks if the variable is present in methods
-        for (String method : table.getMethods()) {
-            if (method.equals(varName)) {
-                return table.getReturnType(method);
-                //table.getParameters(method).
-                //return new Type(method, false);
-            }
+        // Check methods
+        if (table.getMethods().contains(varName)) {
+            return table.getReturnType(varName);
         }
-
-
-
-
+        // Check class name
         if (table.getClassName().equals(varName)) {
             return new Type(table.getClassName(), false);
         }
-
+        // Variable not found
         return null; //throw new RuntimeException("Variable '" + varName + "' is undeclared");
     }
 
