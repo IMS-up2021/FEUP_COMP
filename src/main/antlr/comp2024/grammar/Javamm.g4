@@ -113,7 +113,6 @@ stmt
     | expr SEMI #SimpleExprStmt
     | expr EQUALS expr SEMI #AssignStmt
     | ID LBRACKETS expr RBRACKETS EQUALS expr SEMI #ArrayAssignStmt //a[1] = 2;
-    //| RETURN expr SEMI #ReturnStmt //pode ter varios returns???
     ;
 
 

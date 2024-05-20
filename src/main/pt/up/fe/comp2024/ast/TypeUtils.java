@@ -25,6 +25,8 @@ public class TypeUtils {
      * @param table
      * @return
      */
+
+    // Baseia-se no tipo (kind) da expressão e chama a função apropriada para determinar o tipo específico (getBinExprType, getUnaryExprType, getVarExprType)
     public static Type getExprType(JmmNode expr, SymbolTable table) {
         var kind = Kind.fromString(expr.getKind());
 
@@ -39,6 +41,7 @@ public class TypeUtils {
         return type;
     }
 
+    // Verifica os operandos e o operador da expressão binária. Garante que ambos os operandos são do tipo int para operadores aritméticos.
     public static Type getBinExprType(JmmNode binaryExpr, SymbolTable table) {
         JmmNode leftOperand = binaryExpr.getChildren().get(0);
         JmmNode rightOperand = binaryExpr.getChildren().get(1);
@@ -60,6 +63,7 @@ public class TypeUtils {
         }
     }
 
+    // Verifica se o tipo do operando é compatível com a expressão unária. Retorna o tipo do operando se for compatível.
     public static Type getUnaryExprType(JmmNode expr, SymbolTable table) {
         JmmNode operand = expr.getChildren().get(0);
         Type operandType = getExprType(operand, table);
@@ -75,6 +79,7 @@ public class TypeUtils {
         return INT_TYPE_NAME.equals(type.getName()) || FLOAT_TYPE_NAME.equals(type.getName());
     }
 
+    // Verifica o tipo da referência e, conforme o tipo da expressão (inicialização de array, literais, chamadas de método, etc.), retorna o tipo correspondente.
     public static Type getVarExprType(JmmNode varRefExpr, SymbolTable table) {
         if ("ArrayInitExpr".equals(varRefExpr.getKind())) {
             return new Type("int", true);
