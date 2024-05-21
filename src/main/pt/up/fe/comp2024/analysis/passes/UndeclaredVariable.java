@@ -85,36 +85,36 @@ public class UndeclaredVariable extends AnalysisVisitor {
         var parameters = table.getParameters(methodName);
 
         // Check if the parameters list is empty
-        if (parameters.isEmpty()) {
+        /*if (parameters.isEmpty()) {
             addError("Method has no parameters defined: " + methodName, methodCall);
             return null;
-        }
+        }*/
 
         // Retrieve the list of arguments from the method call
         var arguments = methodCall.getChildren();
 
         // Get the last parameter which is a symbol, if available
-        var lastParam = parameters.get(parameters.size() - 1);
+        if(!parameters.isEmpty()) {
+            var lastParam = parameters.get(parameters.size() - 1);
+            // Check that the number of arguments matches the number of parameters
+            boolean isVararg = Objects.equals(lastParam.getType().getName(), "Varargs");
+            if (arguments.size() != parameters.size() && !isVararg) {
+                addError("Number of arguments does not match number of parameters for method: " + methodName, methodCall);
+                return null;
+            }
+            // For each argument, retrieve its type and compare it with the corresponding parameter's type
+            if (!isVararg) {
+                for (int i = 0; i < arguments.size(); i++) {
+                    var argument = arguments.get(i);
+                    var parameter = parameters.get(i);
 
-        // Check that the number of arguments matches the number of parameters
-        boolean isVararg = Objects.equals(lastParam.getType().getName(), "Varargs");
-        if (arguments.size() != parameters.size() && !isVararg) {
-            addError("Number of arguments does not match number of parameters for method: " + methodName, methodCall);
-            return null;
-        }
+                    var argumentType = getVarExprType(argument, table);
+                    var parameterType = parameter.getType();
 
-        // For each argument, retrieve its type and compare it with the corresponding parameter's type
-        if (!isVararg) {
-            for (int i = 0; i < arguments.size(); i++) {
-                var argument = arguments.get(i);
-                var parameter = parameters.get(i);
-
-                var argumentType = getVarExprType(argument, table);
-                var parameterType = parameter.getType();
-
-                if (!argumentType.getName().equals(parameterType.getName())) {
-                    addError("Type of argument does not match type of parameter for method: " + methodName, methodCall);
-                    return null;
+                    if (!argumentType.getName().equals(parameterType.getName())) {
+                        addError("Type of argument does not match type of parameter for method: " + methodName, methodCall);
+                        return null;
+                    }
                 }
             }
         }

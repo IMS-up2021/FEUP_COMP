@@ -5,6 +5,8 @@ import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 
+import java.util.Objects;
+
 public class TypeUtils {
 
     private static final String INT_TYPE_NAME = "int";
@@ -31,6 +33,7 @@ public class TypeUtils {
         var kind = Kind.fromString(expr.getKind());
 
         Type type = switch (kind) {
+            case METHOD_CALL -> getVarExprType(expr, table);
             case BINARY_EXPR -> getBinExprType(expr, table);
             case UNARY_EXPR -> getUnaryExprType(expr, table);
             case VAR_REF_EXPR -> getVarExprType(expr, table);
@@ -99,7 +102,7 @@ public class TypeUtils {
                 break;
             case "IntegerLiteral":
                 varName = varRefExpr.get("value");
-                return new Type(varName, false);
+                return new Type("int", false);
             case "NewBracketExpr":
                 varName = varRefExpr.getChild(0).get("value");
                 return new Type(varName, true);
