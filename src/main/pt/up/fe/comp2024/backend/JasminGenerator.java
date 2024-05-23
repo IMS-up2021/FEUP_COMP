@@ -901,9 +901,10 @@ public class JasminGenerator {
         } else {
             int val = Integer.parseInt(literal);
 
-            if (isBetween(val, -32768, 32767)) code.append("sipush "); else if (isBetween(val, -1, 5)) code.append("iconst_");
+            if (isBetween(val, -1, 5)) code.append("iconst_");
             else if (isBetween(val, -128, 127)) code.append("bipush ");
-            else code.append(TAB + "ldc ");
+            else if (isBetween(val, -32768, 32767)) code.append("sipush ");
+            else {code.append(TAB); code.append("ldc ");};
 
             if (val == -1) {
                 code.append("m1");
