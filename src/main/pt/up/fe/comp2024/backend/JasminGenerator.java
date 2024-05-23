@@ -8,9 +8,7 @@ import pt.up.fe.specs.util.classmap.FunctionClassMap;
 import pt.up.fe.specs.util.exceptions.NotImplementedException;
 import pt.up.fe.specs.util.utilities.StringLines;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.specs.comp.ollir.ElementType.*;
@@ -35,6 +33,18 @@ public class JasminGenerator {
 
     ClassUnit classUnit;
 
+
+    int argsToPop;
+
+    int IndexJUMP;
+
+
+    int stackLimit;
+    int currentStackSiz;
+
+
+
+
     private final FunctionClassMap<TreeNode, String> generators;
 
     public JasminGenerator(OllirResult ollirResult) {
@@ -57,6 +67,12 @@ public class JasminGenerator {
         generators.put(PutFieldInstruction.class, this::generatePutField);
         generators.put(GetFieldInstruction.class, this::generateGetField);
         generators.put(CallInstruction.class, this::generateCall);
+        generators.put(SingleOpCondInstruction.class, this::generateSingleOpCondInstruction);
+        generators.put(GotoInstruction.class, this::generateGotoInstruction);
+        generators.put(CondBranchInstruction.class, this::generateCondBranchInstruction);
+        generators.put(UnaryOpInstruction.class, this::generateUnaryOpInstruction);
+
+
     }
 
     public List<Report> getReports() {
@@ -67,11 +83,14 @@ public class JasminGenerator {
 
         // This way, build is idempotent
         if (code == null) {
+
             code = generators.apply(ollirResult.getOllirClass());
         }
 
         return code;
     }
+
+
 
 
     private String generateClassUnit(ClassUnit classUnit) {
@@ -86,36 +105,37 @@ public class JasminGenerator {
         // TODO: Hardcoded to Object, needs to be expanded
         //code.append(".super java/lang/Object").append(NL);
 
+
+
+
+        this.IndexJUMP = 0;
+
+
+
         // Determine superclass
         var superClass = classUnit.getSuperClass();
 
         if (superClass != null) {
             code.append(".super ").append(superClass).append(NL);
         } else {
-            // If superclass is not explicitly defined, fallback to java/lang/Object
             code.append(".super java/lang/Object").append(NL);
         }
-
 
 
         for (var field : classUnit.getFields()){
 
             String name = field.getFieldName();
-            String access = getFieldAccess(field);
-            String type = getType(field.getFieldType().getTypeOfElement());
-            code.append(".field " + access + name + " " + type + "\n");
-
+            String access = getAccessFromField(field);
+            String type = getTypeOfField(field.getFieldType());
+            code.append(".field ").append(access).append(name + " ").append(type).append(NL);
         }
 
 
-
-
-        // generate a single constructor method
         var defaultConstructor1 = """
                 ;default constructor
                 .method public <init>()V
-                    .limit stack 99
-                    .limit locals 99
+                    .limit stack 1
+                    .limit locals 1
                     aload_0
                 """;
 
@@ -128,12 +148,8 @@ public class JasminGenerator {
 
         code.append(defaultConstructor1 + constructorBetween + defaultConstructor2);
 
-        // generate code for all other methods
         for (var method : ollirResult.getOllirClass().getMethods()) {
 
-            // Ignore constructor, since there is always one constructor
-            // that receives no arguments, and has been already added
-            // previously
             if (method.isConstructMethod()) {
                 continue;
             }
@@ -145,59 +161,78 @@ public class JasminGenerator {
     }
 
 
+
+
+
+
+
+
+
     private String generateMethod(Method method) {
 
-        // set method
+        var localsLimit = 0;
+        localsLimit = this.getLimitFromLocals(method);
+
+        this.stackLimit = 0;
+        this.currentStackSiz = 0;
+
+
+
         currentMethod = method;
 
-        var code = new StringBuilder();
+        var header = new StringBuilder();
 
-        // calculate modifier
+
         var modifier = method.getMethodAccessModifier() != AccessModifier.DEFAULT ?
                 method.getMethodAccessModifier().name().toLowerCase() + " " :
                 "";
 
         var methodName = method.getMethodName();
 
-        // TODO: Hardcoded param types and return type, needs to be expanded
-        //code.append("\n.method ").append(modifier).append(methodName).append("(I)I").append(NL);
-
-        if (method.isStaticMethod()) {code.append("\n.method ").append(modifier).append("static ").append(methodName).append("(");}
-        else {code.append("\n.method ").append(modifier).append(methodName).append("(");}
 
 
-        for (Element argument : method.getParams())
-            code.append(getType(argument.getType().getTypeOfElement()));
-        code.append(")" + getType(method.getReturnType().getTypeOfElement()) + "\n");
-
-        /*
-        // Dynamically generate parameter types
-        var paramTypes = method.getParams().stream()
-                .map(param -> param.getType().getTypeOfElement());
-
-        // Dynamically generate return type
-        var returnType = method.getReturnType();
-
-        code.append("\n.method ").append(modifier).append(methodName)
-                .append("(").append(paramTypes).append(")").append(returnType).append(NL);
-    */
+        if (method.isStaticMethod()) {header.append("\n.method ").append(modifier).append("static ").append(methodName).append("(");}
+        else {header.append("\n.method ").append(modifier).append(methodName).append("(");}
 
 
-        // Add limits
-        code.append(TAB).append(".limit stack 99").append(NL);
-        code.append(TAB).append(".limit locals 99").append(NL);
+        for (Element argument : method.getParams()){
+            header.append(getTypeOfField(argument.getType()));
+        }
+        header.append(")" + getTypeOfField(method.getReturnType()) + "\n");
+
+
+        var code = new StringBuilder();
 
         //code.append("invokestatic ioPlus/printHelloWorld()V");
 
-        for (var inst : method.getInstructions()) {
-            //var instructionType = inst.getInstType();
 
-            //code.append(inst.getInstType());
-            //code.append(inst.getInstType());
+        String instructs = "";
+
+        for (var inst : method.getInstructions()) {
+
+
+
+            for (Map.Entry<String, Instruction> label : method.getLabels().entrySet()) {
+                if (label.getValue().equals(inst)) {
+                    instructs += TAB + label.getKey() + ":" + NL;
+                }
+            }
+
+            code.append(instructs);
+            instructs = "";
 
             System.out.println(inst.getInstType());
             var instCode = StringLines.getLines(generators.apply(inst)).stream()
                     .collect(Collectors.joining(NL + TAB, TAB, NL));
+
+
+            var tipo = inst.getInstType();
+            if (tipo.equals(InstructionType.CALL) &&
+                    ((CallInstruction) inst).getReturnType().getTypeOfElement() != ElementType.VOID) {
+                instructs += TAB + "pop";
+                instructs +=NL;
+                this.popS(1);
+            }
 
             code.append(instCode);
         }
@@ -205,11 +240,23 @@ public class JasminGenerator {
 
         code.append(".end method\n");
 
-        // unset method
+        var limits = new StringBuilder();
+
+
+        limits.append(TAB).append(".limit stack ").append(this.stackLimit+2).append(NL);
+        limits.append(TAB).append(".limit locals ").append(localsLimit).append(NL);
+
+
+        header.append(limits).append(code);
+
+
+
         currentMethod = null;
 
-        return code.toString();
+        return header.toString();
     }
+
+
 
     /*
     ASSIGN,
@@ -225,9 +272,9 @@ public class JasminGenerator {
      */
 
 
-
-
-
+    private HashMap<String, Descriptor> getvarTable(){
+        return this.currentMethod.getVarTable();
+    }
 
 
 
@@ -236,10 +283,10 @@ public class JasminGenerator {
         var code = new StringBuilder();
 
 
-        // generate code for loading what's on the right
-        //code.append(generators.apply(assign.getRhs()));
+        var varTable = getvarTable();
 
-        // store value in the stack in destination
+
+
         var lhs = assign.getDest();
 
         if (!(lhs instanceof Operand)) {
@@ -248,22 +295,21 @@ public class JasminGenerator {
 
         var operand = (Operand) lhs;
 
-        /*
-        for (var t : currentMethod.getVarTable().values()){
-            System.out.println(t.getScope());
-            System.out.println(t.getVirtualReg());
-            System.out.println(t.getVarType());
+
+        var rhs = assign.getRhs();
+
+
+
+        if (lhs instanceof ArrayOperand) {
+            return this.generateArrayAssignment(assign);
         }
 
-         */
 
 
 
 
 
-        // get register
-        //var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
-        var reg = currentMethod.getVarTable();
+        var reg = getvarTable();
 
         // (Binary) Operation assigment with increment
         if (assign.getRhs().getInstType() == InstructionType.BINARYOPER) {
@@ -284,142 +330,121 @@ public class JasminGenerator {
                 }
 
                 if (true_operand != null && true_element != null && operand.getName().equals(assign.getDest()) &&
-                        between(Integer.parseInt(true_element.getLiteral()), -128, 127)) {
+                        isBetween(Integer.parseInt(true_element.getLiteral()), -128, 127)) {
                     return "\tiinc " + reg.get(operand.getName()).getVirtualReg() + " " + Integer.parseInt(true_element.getLiteral()) + "\n";
                 }
             }
+
+
+
+
+
         }
 
 
-        code.append(generators.apply(assign.getRhs()));
 
-        /*
-        types of instructions
-                INT32,
-                BOOLEAN,
-                ARRAYREF,
-                OBJECTREF,
-                CLASS,
-                THIS,
-                STRING,
-                VOID;
-
-         */
-        if (assign.getTypeOfAssign().getTypeOfElement() != OBJECTREF)
-            code.append(storeVariable(operand));
+        code.append(getInst(assign.getRhs()));
 
 
-        // TODO: Hardcoded for int type, needs to be expanded
-        //code.append("istore ").append(reg).append(NL);
+        code.append(storeVar((Operand) assign.getDest()));
+
+
+
+
 
         return code.toString();
     }
 
     private String generateSingleOp(SingleOpInstruction singleOp) {
-        return generators.apply(singleOp.getSingleOperand());
+        var code = new StringBuilder();
+
+        code.append(generators.apply(singleOp.getSingleOperand()));
+
+        return code.toString();
     }
 
     private String generateLiteral(LiteralElement literal) {
-        return "ldc " + literal.getLiteral() + NL;
+        var code = new StringBuilder();
+
+        code.append("ldc " + literal.getLiteral() + NL);
+
+        return code.toString();
     }
 
+
+
     private String generateOperand(Operand operand) {
-        // get register
-        var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
-        return "iload " + reg + NL;
+
+        var code = new StringBuilder();
+
+        var varTable = getvarTable();
+
+        var reg = varTable.get(operand.getName()).getVirtualReg();
+
+        if (isBetween(reg,1,1)) {code.append("iload_").append(reg).append(NL); return code.toString(); }   //not sure why
+
+        code.append("iload ").append(reg).append(NL);
+        return code.toString();
     }
 
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
         var code = new StringBuilder();
 
-        // load values on the left and on the right
+        var varTable = getvarTable();
+
+
         code.append(generators.apply(binaryOp.getLeftOperand()));
         code.append(generators.apply(binaryOp.getRightOperand()));
 
         // apply operation
         var op = switch (binaryOp.getOperation().getOpType()) {
             case ADD -> "iadd";
-            case MUL -> "imul";
             case SUB -> "isub";
             case DIV -> "idiv";
+            case MUL -> "imul";
             default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
         };
 
         code.append(op).append(NL);
+        popS(1);
 
         return code.toString();
     }
 
-    private String generateReturn(ReturnInstruction returnInst) {
-        var code = new StringBuilder();
-
-        // TODO: Hardcoded to int return type, needs to be expanded
-        //code.append(generators.apply(returnInst.getOperand()));
-        //code.append("ireturn").append(NL);
-
-
-
-        if (returnInst.hasReturnValue())
-            code.append(generators.apply(returnInst.getOperand()));
-
-
-
-        ElementType returnType = returnInst.getElementType();
-        //ElementType returnType = operand.getType().getTypeOfElement();
-
-        //code.append(generators.apply(returnInst.getOperand()));
-        switch (returnType) {
-            case INT32 -> code.append("ireturn");
-            case BOOLEAN -> code.append("ireturn");
-            case VOID -> code.append("return");
-            case STRING -> code.append("Ljava/lang/String;");
-            default -> {}
-        };
-
-
-        return code.toString();
-    }
 
 
     private String generatePutField(FieldInstruction fieldInstruction){
         var code = new StringBuilder();
-        // TODO: Implement this method
-
-        //var reg = currentMethod.getVarTable();
 
 
-        Element first = fieldInstruction.getOperands().get(0);  //operand: Test
-        Element second = fieldInstruction.getOperands().get(1);  //operand: intField
-        Element third = fieldInstruction.getOperands().get(2);  //literalelement 10
 
-        // Carrega a referência "this" na pilha
+
+        popS(2);
+
+
+        var varTable = getvarTable();
+
+        Element First_ = fieldInstruction.getOperands().get(0);  //operand: Test
+        Element Second_ = fieldInstruction.getOperands().get(1);  //operand: intField
+        Element Third_ = fieldInstruction.getOperands().get(2);  //literalelement 10
+
+
         code.append("\taload_0").append(NL);
 
-        // Carrega a constante 10 na pilha
-        var reg = this.currentMethod.getVarTable();
 
 
-        //code.append(reg.get(third.toElement()).getVirtualReg());
+        if (Third_.isLiteral()) {
+            String literalValue = ((LiteralElement) Third_).getLiteral();
 
-        //code.append("\tldc ").append(reg).append(NL);
+            String valueType = getElemType(Third_.getType().getTypeOfElement());
 
-        if (third.isLiteral()) {
-            // Obtém o valor literal do terceiro operando
-            String literalValue = ((LiteralElement) third).getLiteral();
-            // Converte o valor literal para o tipo apropriado
-            String valueType = getType(third.getType().getTypeOfElement());
-
-            // Carrega o valor literal na pilha
-            code.append("\tldc ").append(literalValue).append(NL);
+            code.append("ldc ").append(literalValue).append(NL);
         }
 
 
 
-        //var className = ollirResult.getOllirClass().getClassName();
-        //code.append(".class public ").append(className).append(NL).append(NL);
-
         var className = "";
-        if (((Operand) first).getName() == "this") {
+        if (((Operand) First_).getName() == "this") {
             className = ollirResult.getOllirClass().getClassName();
         } else {
             //imported
@@ -427,55 +452,29 @@ public class JasminGenerator {
         }
 
 
+        var Code = new StringBuilder();
 
-        code.append("\tputfield ").append(className).append("/").append(((Operand) second).getName())
-                .append(" ").append(getType(third.getType().getTypeOfElement()));
+        Code.append(TAB).append(loadVar(First_))
+                .append(loadVar(Third_)).append(TAB).append("putfield").append(" ")
+                .append(getClassNameFromImports(((Operand) First_).getName())).append("/")
+                .append(((Operand) Second_).getName()).append(" ").append(getTypeOfField(Second_.getType()))
+                .append(NL);
 
+        return Code.toString();
 
-        //code.append(generateLiteral((LiteralElement) third));
-
-        //var reg = currentMethod.getVarTable().get(second).getVirtualReg();
-
-
-
-        //code.append(first); //operand: test
-        //code.append(second); //operand: intField
-        //code.append(third); //literalelement 10
-
-
-
-
-        //Operand: this.THIS(Test)Operand: intField.INT32LiteralElement: 10.INT32
-
-
-        //reg.put()
-
-        //"\t" + loadVariable(table, first) + this.loadVariable(table, third) +
-        //"\tputfield " + this.getImportedClassName(((Operand) first).getName()) +
-        //"/" + ((Operand) second).getName() +  " " + this.getFieldType(second.getType()) + "\n";
-
-        /*
-        String name = field.getFieldName();
-        String access = getFieldAccess(field);
-        String type = getType(field.getFieldType().getTypeOfElement());
-        code.append(".field " + access + name + " " + type + "\n");
-        */
-
-
-
-        return code.toString();
+        //return code.toString();
     }
 
 
 
-    private String generateGetField(GetFieldInstruction instruction) {
+    private String generateGetField(GetFieldInstruction getFieldinst) {
         // TODO: Implement this method
         var code = new StringBuilder();
 
-        //var reg = currentMethod.getVarTable();
+        var varTable = getvarTable();
 
-        Element first = instruction.getOperands().get(0);  //operand: Test
-        Element second = instruction.getOperands().get(1);  //operand: intField
+        Element first = getFieldinst.getOperands().get(0);  //operand: Test
+        Element second = getFieldinst.getOperands().get(1);  //operand: intField
 
         code.append("\taload_0").append(NL);
 
@@ -489,40 +488,65 @@ public class JasminGenerator {
 
 
         code.append("\tgetfield ").append(className).append("/").append(((Operand) second).getName())
-                .append(" ").append(getType(second.getType().getTypeOfElement())).append("\n");
+                .append(" ").append(getElemType(second.getType().getTypeOfElement())).append("\n");
 
         return code.toString();
     }
 
 
 
-    private String generateCall(CallInstruction instruction) {
+    private String generateCall(CallInstruction callInst) {
+
         var code = new StringBuilder();
 
-        var table = currentMethod.getVarTable();
 
-        //instruction.getArguments().stream().forEach(System.out::println);
-        CallType invocationType = instruction.getInvocationType();
+        this.argsToPop = 0;
+
+        var varTable = getvarTable();
+
+        CallType invocationType = callInst.getInvocationType();
 
         // Handle different types of calls
         switch (invocationType) {
             case invokevirtual:
                 // Generate bytecode for virtual call
-                code.append(generateVirtualCall(instruction));
+                code.append(generateVirtualCall(callInst));
                 break;
             case invokespecial:
                 // Generate bytecode for special call (e.g., constructor)
-                code.append(generateSpecialCall(instruction));
+                code.append(generateSpecialCall(callInst));
                 break;
             case invokestatic:
                 // Generate bytecode for static call
-                code.append(generateStaticCall(instruction));
+                code.append(generateStaticCall(callInst));
                 break;
+            case ldc:
+                code.append(generateLdcCall(callInst));
+                break;
+            case arraylength:
+                code.append(generateLengthCall(callInst));
+                break;
+            case NEW:
+                if (callInst.getReturnType().getTypeOfElement() == OBJECTREF){
+                    code.append(generateObjectCall(callInst));
+                    //code.append("\tdup\n");
+                } else {
+                    code.append(generateArrayCall(callInst));
+                    //code.append("\tdup\n");
+                }
+                break;
+
+
+
             default:
                 // Handle other types of calls if needed
                 // Currently not handling other types of calls
                 break;
+
         }
+
+
+        popS(argsToPop);
 
 
 
@@ -533,157 +557,358 @@ public class JasminGenerator {
     }
 
 
+    private String generateObjectCall(CallInstruction CallInst) {
 
-    private String getType(ElementType type) {
-        return switch (type) {
-            case INT32 -> "I";
-            case BOOLEAN -> "Z";
-            case VOID -> "V";
-            case STRING -> "[Ljava/lang/String;";
-            default -> "[Ljava/lang/String;";
-        };
+        var operands = CallInst.getOperands();
+
+        String object = "";
+        var code = new StringBuilder();
+
+        this.argsToPop = -1;
+
+        //var varTable = getvarTable();
+
+
+        for (Element Elem : CallInst.getArguments()) {
+            this.argsToPop = this.argsToPop + 1;
+            code.append(loadVar(Elem));
+        }
+
+
+        String nameOfClass = ((Operand) CallInst.getOperands().get(0)).getName();
+        code.append(object).append(TAB)
+                .append("new ")
+                .append(getClassNameFromImports(nameOfClass))
+                .append(NL);
+        return code.toString();
+
+    }
+
+    private String getElemType(ElementType Type) {
+        //var varTable = getvarTable();
+
+        var tipo = new StringBuilder();
+
+        switch (Type) {
+            case INT32 -> {tipo.append("I"); return tipo.toString();}
+            case BOOLEAN -> {tipo.append("Z"); return tipo.toString();}
+            case STRING -> {tipo.append("Ljava/lang/String;"); return tipo.toString();}
+            case VOID -> {tipo.append("V"); return tipo.toString();}
+            default -> {return null;}
+        }
     }
 
 
-    private String getFieldAccess(Field field) {
-        String access = "";
-        if (field.getFieldAccessModifier() != AccessModifier.DEFAULT) {
+
+    private String getTypeOfField(Type type) {
+
+        var fieldTipo = new StringBuilder();
+
+        var helper = "";
+
+        //var varTable = getvarTable();
+
+        var typeOfElem = type.getTypeOfElement();
+        switch (typeOfElem) {
+            case OBJECTREF -> {
+                var tipo = (ClassType) type;
+                helper += "L" + this.getClassNameFromImports(tipo.getName()) + ";";
+            }
+            case ARRAYREF -> {
+                var tipo = (ArrayType) type;
+                helper += "[" + this.getElemType(tipo.getElementType().getTypeOfElement());
+            }
+            default -> helper += this.getElemType(type.getTypeOfElement());
+        };
+
+
+        fieldTipo.append(helper);
+        return fieldTipo.toString();
+
+    }
+
+
+
+
+    private String getAccessFromField(Field field) {
+
+        var code = new StringBuilder();
+
+        //var varTable = getvarTable();
+
+        if (!field.getFieldAccessModifier().equals(AccessModifier.DEFAULT)) {
             switch (field.getFieldAccessModifier()) {
-                case PUBLIC -> access += "public ";
-                case PROTECTED -> access += "protected ";
-                case PRIVATE -> access += "private ";
+                case PROTECTED -> {code.append("protected ");}
+                case PRIVATE -> {code.append("private ");}
+                case PUBLIC -> {code.append("public ");}
             }
         }
-        if (field.isFinalField()) access += "final ";
-        if (field.isStaticField()) access += "static ";
-        return access;
-    }
+        if (field.isFinalField()) {
+            code.append("final ");
 
-
-    private boolean between(int value, int lower, int upper) {
-        return value <= upper && value >= lower;
-    }
-
-
-    private String storeVariable(Operand operand) {
-
-        var reg = currentMethod.getVarTable();
-
-        return switch (operand.getType().getTypeOfElement()) {
-            case ARRAYREF, STRING, THIS, OBJECTREF -> "\tastore" + this.getVariableIndex(operand.getName()) + "\n";
-            case BOOLEAN, INT32 ->
-                    reg.get(operand.getName()).getVarType().getTypeOfElement() == ElementType.ARRAYREF ?
-                            "\tiastore\n" :
-                            "\tistore" + this.getVariableIndex(operand.getName()) + "\n";
-            default -> null;
-        };
-    }
-
-
-    private String getVariableIndex(String variableName) {
-
-        var reg = currentMethod.getVarTable();
-
-        if (variableName.equals("this")) return "_0";
-        int number = reg.get(variableName).getVirtualReg();
-        return (number < 4 ? "_" : " ") + number;
-    }
-
-
-    private String generateSpecialCall(CallInstruction instruction) {
-
-        var code = new StringBuilder();
-
-        // Check if it's invoking a constructor
-        if (instruction.getMethodName().toString().equals("<init>")) {
-            // Generate bytecode to create a new instance of the class
-            code.append("\tnew ").append(instruction.getCaller()).append(NL);
-            code.append("\tdup").append(NL);
-            // Generate bytecode to invoke constructor
-            code.append("\tinvokespecial ").append(instruction.getCaller()).append("/<init>()V").append(NL);
+        }
+        if (field.isStaticField()) {
+            code.append("static ");
         }
         return code.toString();
     }
 
 
-    private String generateVirtualCall(CallInstruction instruction) {
+    private boolean isBetween(int val, int low, int high) {
+        //var varTable = getvarTable();
+
+        if (val >= low && val <= high) return true;
+
+        return false;
+    }
+
+
+    private String storeVar(Operand oper) {
 
         var code = new StringBuilder();
+
+        var reg = getvarTable();
+
+        var tipoElem = oper.getType().getTypeOfElement();
+
+        switch (tipoElem) {
+            case BOOLEAN, INT32 -> {
+
+                if (reg.get(oper.getName()).getVarType().getTypeOfElement().equals(ElementType.ARRAYREF)) {
+                    popS(3);
+                } else popS(1);
+
+
+                if (reg.get(oper.getName()).getVarType().getTypeOfElement().equals(ElementType.ARRAYREF)) {
+                    code.append(TAB).append("iastore").append(NL);
+                    return code.toString();
+                } else {
+                    code.append("istore").append(getVarIndex(oper.getName())).append(NL);
+                    return code.toString();
+
+                }
+
+            }
+            case ARRAYREF, STRING, THIS, OBJECTREF ->{
+                popS(1);
+                code.append(TAB).append("astore")
+                        .append(getVarIndex(oper.getName())).append(NL);
+
+                return code.toString();
+            }
+
+
+            default -> {return "";}
+        }
+    }
+
+
+
+
+
+    private String generateSpecialCall(CallInstruction CallInst) {
+
+
+        var varTable = getvarTable();
+
+
+        var code = new StringBuilder();
+
+
+        code.append(TAB).append(loadVar(CallInst.getOperands().get(0)))
+                .append(TAB).append("invokespecial").append(" ");
+
+
+        if (CallInst.getOperands().get(0).getType().getTypeOfElement().equals(THIS)){
+            code.append(CallInst.getCaller().toString());
+            code.append("/<init>");
+        } else {
+            code.append(getClassNameFromImports(((ClassType) CallInst.getOperands().get(0).getType()).getName()));
+            code.append("/<init>");
+        }
+
+
+
+
+        code.append("(");
+
+        for (Element elem : CallInst.getArguments())
+            code.append(getTypeOfField(elem.getType()));
+
+
+        code.append(")");
+
+
+
+        Type typeRet = CallInst.getReturnType();
+
+
+        if (typeRet.getTypeOfElement().equals(ElementType.VOID)){
+
+        } else {
+            this.argsToPop--;
+        }
+
+
+        code.append(getTypeOfField(typeRet))
+                .append(NL);
+
+
+        return code.toString();
+
+
+    }
+
+
+
+
+
+
+    private String generateVirtualCall(CallInstruction Callinst) {
+
+        var varTable = getvarTable();
+
+        var code = new StringBuilder();
+
+        var operands = Callinst.getOperands();
+
+
+
+        code.append(loadVar(Callinst.getOperands().get(0)));
+
+        //second
+        LiteralElement Second_ = (LiteralElement) Callinst.getOperands().get(1);
+
+        //first
+        Operand First_ = (Operand) Callinst.getOperands().get(0);
+
+
+        argsToPop = 1;
+
+
+
+        for (Element staticElement : Callinst.getArguments()) {
+            code.append(loadVar(staticElement));
+            argsToPop++;
+        }
+
+        code.append(TAB)
+                .append("invokevirtual").append(" ")
+                .append(getClassNameFromImports(((ClassType) First_.getType()).getName()))
+                .append("/").append(Second_.getLiteral().replace("\"", ""));
+
+
+
+        code.append("(");
+
+        for (Element elem : Callinst.getArguments())
+            code.append(getTypeOfField(elem.getType()));
+
+        code.append(")");
+
+
+        Type typeRet = Callinst.getReturnType();
+
+        if (typeRet.getTypeOfElement().equals(ElementType.VOID)){
+
+        } else {
+            this.argsToPop--;
+        }
+
+
+        code.append(getTypeOfField(typeRet))
+                .append(NL);
+
+
 
         return code.toString();
     }
 
 
-    private String generateStaticCall(CallInstruction instruction) {
+    private String generateStaticCall(CallInstruction Callinst) {
 
         var code = new StringBuilder();
 
+        var varTable = getvarTable();
 
-        // Load static method arguments onto the operand stack
-        for (Element staticElement : instruction.getOperands()) {
-            code.append(loadVariable(staticElement));
+        this.argsToPop = 0;
+
+
+        for (Element staticElement : Callinst.getOperands()) {
+            this.argsToPop++;
+            code.append(loadVar(staticElement));
         }
 
 
 
-        //instruction.getArguments().get(0);
-        // Append bytecode instruction to invoke static method
-        Operand first = (Operand) instruction.getCaller();//instruction.getArguments().get(0);
-        LiteralElement second = (LiteralElement) instruction.getMethodName();//instruction.getArguments().get(1);
-        code.append("\tinvokestatic ").append(getImportedClassName(first.getName()))
+
+        Operand first = (Operand) Callinst.getCaller();
+        LiteralElement second = (LiteralElement) Callinst.getMethodName();
+        code.append("invokestatic ").append(getClassNameFromImports(first.getName()))
                 .append("/").append(second.getLiteral().replace("\"", ""));
 
-        // Append bytecode instructions for method arguments and return type
+
+
         code.append("(");
-        /*
-        for (Element element : instruction.getOperands()) {
-            code.append(getType(element.getType().getTypeOfElement()));
+
+
+        for (Element elem : Callinst.getArguments()) {
+            code.append(getElemType(elem.getType().getTypeOfElement()));
         }
-         */
-        code.append(")").append(getType(instruction.getReturnType().getTypeOfElement())).append("\n");
 
+        code.append(")").append(getElemType(Callinst.getReturnType().getTypeOfElement())).append("\n");
 
+        if (Callinst.getReturnType().getTypeOfElement().equals(ElementType.VOID)){
 
-        return code.toString();
-    }
-
-
-
-
-    private String loadVariable(Element element) {
-
-        var code = new StringBuilder();
-
-        if (element instanceof LiteralElement) code.append(loadLiteral((LiteralElement) element) + NL);
-        if (element instanceof ArrayOperand) code.append(loadArray((ArrayOperand) element) + NL);
-        if (element instanceof Operand) code.append(loadOperand((Operand) element) + NL);
-
-        return code.toString();
-
-    }
-
-
-    private String loadLiteral(LiteralElement element) {
-
-        var code = new StringBuilder();
-
-        String literal = element.getLiteral();
-        ElementType elementType = element.getType().getTypeOfElement();
-        if (elementType != ElementType.INT32 && elementType != ElementType.BOOLEAN) {
-            code.append(TAB + "ldc " + literal);
         } else {
-            int value = Integer.parseInt(literal);
+            this.argsToPop--;
+        }
 
 
-            if (between(value, -1, 5)) code.append(TAB + "iconst_");
-            else if (between(value, -128, 127)) code.append(TAB + "bipush ");
-            else if (between(value, -32768, 32767)) code.append(TAB + "sipush ");
+        return code.toString();
+    }
+
+
+
+
+    private String loadVar(Element elem) {
+
+        var code = new StringBuilder();
+
+        if (elem instanceof ArrayOperand) {code.append(loadArray((ArrayOperand) elem) + NL);}
+        else if (elem instanceof Operand) {code.append(loadOperand((Operand) elem) + NL);}
+        else if (elem instanceof LiteralElement){ code.append(loadLiteralVal((LiteralElement) elem) + NL);}
+
+        return code.toString();
+
+    }
+
+
+    private String loadLiteralVal(LiteralElement elem) {
+
+        var code = new StringBuilder();
+
+        pushS(1);
+
+        String literal = elem.getLiteral();
+        ElementType elementType = elem.getType().getTypeOfElement();
+
+
+        //var varTable = getvarTable();
+
+        if (!(elementType == ElementType.INT32 || elementType == ElementType.BOOLEAN)) {
+
+        } else {
+            int val = Integer.parseInt(literal);
+
+            if (isBetween(val, -32768, 32767)) code.append("sipush "); else if (isBetween(val, -1, 5)) code.append("iconst_");
+            else if (isBetween(val, -128, 127)) code.append("bipush ");
             else code.append(TAB + "ldc ");
 
-            if (value == -1) {
+            if (val == -1) {
                 code.append("m1");
             } else {
-                code.append(value);
+                code.append(val);
             }
 
         }
@@ -692,51 +917,70 @@ public class JasminGenerator {
 
 
 
-    private String loadArray(ArrayOperand element) {
+    private String loadArray(ArrayOperand elem) {
+
+        this.pushS(1);
 
         var code = new StringBuilder();
 
-        var table = this.currentMethod.getVarTable();
+        //var table = this.currentMethod.getVarTable();
 
-        code.append(TAB + "aload" + getVarIndex(element.getName()))
+        var elemToLoad = elem.getIndexOperands().get(0);
+
+        var index = getVarIndex(elem.getName());
+
+        code.append(TAB + "aload" + index)
                 .append(NL)
-                .append(loadVariable(element.getIndexOperands().get(0)))
-                .append(TAB + "iload");
+                .append(loadVar(elemToLoad))
+
+                .append("iaload");
+
+
+        popS(1);
 
 
         return code.toString();
 
     }
 
-    private String loadOperand(Operand operand) {
+    private String loadOperand(Operand oper) {
 
         var code = new StringBuilder();
 
-        if (operand.getType().getTypeOfElement().equals(THIS)){
+        this.pushS(1);
+
+        if (oper.getType().getTypeOfElement().equals(THIS)){
             code.append("aload_0");
-        } else if (operand.getType().getTypeOfElement().equals(STRING) || operand.getType().getTypeOfElement().equals(ARRAYREF) || operand.getType().getTypeOfElement().equals(OBJECTREF)) {
-            code.append(TAB).append("load").append(getVarIndex(operand.getName()));
-        } else if (operand.getType().getTypeOfElement().equals(BOOLEAN) || operand.getType().getTypeOfElement().equals(INT32)) {
-            code.append(TAB).append("iload").append(getVarIndex(operand.getName()));
+        } else if (oper.getType().getTypeOfElement().equals(STRING) || oper.getType().getTypeOfElement().equals(ARRAYREF) || oper.getType().getTypeOfElement().equals(OBJECTREF)) {
+            code.append(TAB).append("aload").append(getVarIndex(oper.getName()));
+        } else if (oper.getType().getTypeOfElement().equals(BOOLEAN) || oper.getType().getTypeOfElement().equals(INT32)) {
+            code.append("iload").append(getVarIndex(oper.getName()));
         }
 
+        //varIndex para objeto
+
 
         return code.toString();
 
     }
 
 
-    private String getVarIndex(String variableName) {
+    private String getVarIndex(String var_name) {
 
         var code = new StringBuilder();
+
+
 
         var table = currentMethod.getVarTable();
 
 
-        if (variableName.equals("this")) {
+
+
+        if (var_name.equals("this")) {
             code.append("_0");
         } else {
-            var num = table.get(variableName).getVirtualReg();
+            var num = table.get(var_name).getVirtualReg();
+
             if (num < 4){
                 code.append("_");
             }
@@ -754,45 +998,526 @@ public class JasminGenerator {
 
 
     //apagar tudo a partir daqui
-    private String getImportedClassName(String basicClassName) {
+    private String getClassNameFromImports(String class_name) {
 
-        // .this object
-        if (basicClassName.equals("this"))
-            return classUnit.getClassName();
+        var code = new StringBuilder();
 
 
-        // imported object
-        for (String importedClass : this.classUnit.getImports()) {
-            if (importedClass.endsWith(basicClassName)) {
-                return this.normalizeClassName(importedClass);
+        if (class_name.equals("this")) {
+            code.append(classUnit.getClassName());
+            return code.toString();
+        }
+
+
+        var imports = this.classUnit.getImports();
+
+        for (var className : imports) {
+
+            if (className.endsWith(class_name)) {
+                code.append(nameOfClassNorm(className));
+                return code.toString();
+
+
+
             }
         }
 
-        // default object name
-        return basicClassName;
+
+        return class_name;
     }
 
 
-    private String normalizeClassName(String className) {
-        return className.replaceAll("\\.", "/");
+    private String nameOfClassNorm(String nameOfClass) {
+
+        var code = new StringBuilder();
+
+        nameOfClass.replaceAll("\\.", "/");
+
+        code.append(nameOfClass);
+
+        return code.toString();
+
+
     }
 
 
-    /*
-    private String getFieldType(Type type) {
-        return switch (type.getTypeOfElement()) {
-            case ARRAYREF -> this.getArrayType(type);
-            case OBJECTREF -> this.getObjectType(type);
-            default -> this.getType(type.getTypeOfElement());
+
+    private String getInst(Instruction inst) {
+
+        var Tipo = inst.getInstType();
+
+        var varTable = getvarTable();
+
+        switch (Tipo) {
+            case CALL -> {return this.generateCall((CallInstruction) inst);}
+            case GOTO -> {return this.generateGotoInstruction((GotoInstruction) inst);}
+            case BRANCH -> {return this.generateCondBranchInstruction((CondBranchInstruction) inst);}
+            case PUTFIELD -> {return this.generatePutField((PutFieldInstruction) inst);}
+            case GETFIELD -> {return this.generateGetField((GetFieldInstruction) inst);}
+            case ASSIGN -> {return this.generateAssign((AssignInstruction) inst);}
+            case UNARYOPER -> {return this.generateUnaryOpInstruction((UnaryOpInstruction) inst);}
+            case BINARYOPER -> {return this.generateBinaryOp((BinaryOpInstruction) inst);}
+            case NOPER -> {return this.generateNoper((SingleOpInstruction) inst);}
+            case RETURN -> {return this.generateReturn((ReturnInstruction) inst);}
         };
+
+        return "";
+
+
     }
 
-     */
+
+
+
+
+    private String[] generateBinaryBranch(BinaryOpInstruction BinatyOpInst) {
+
+
+        String array[] = new String[5];
+
+
+        var varTable = getvarTable();
+
+        Integer literalVal = null;
+
+        var typeOp = BinatyOpInst.getOperation().getOpType();
+
+        var code = new StringBuilder();
+
+        switch (typeOp) {
+
+            //less th <
+            case LTH:
+
+                var left = BinatyOpInst.getLeftOperand();
+
+                var right = BinatyOpInst.getRightOperand();
+
+
+                // (num var)
+                if (left instanceof LiteralElement) {
+                    literalVal = Integer.parseInt(((LiteralElement) left).getLiteral());
+                    array[1] = loadVar(BinatyOpInst.getRightOperand());
+                    array[0] = "ifgt";
+                }
+
+
+
+                // (var num))
+                if (right instanceof LiteralElement) {
+                    literalVal = Integer.parseInt(((LiteralElement) right).getLiteral());
+                    array[1] = loadVar(BinatyOpInst.getLeftOperand());
+                    array[0] = "iflt";
+                }
+
+                // ((var var)
+
+                if (literalVal == null || literalVal != 0){
+
+                    var l = loadVar(left); var r = loadVar(right);
+                    array[1] = l + r;
+                    array[0] = "if_icmplt";
+                }
+                break;
+
+            case ANDB:
+                array[0] = "ifne";
+                array[1] = getInst(BinatyOpInst);
+                break;
+
+                ///gte >=
+            case GTE:
+
+                var left_ = BinatyOpInst.getLeftOperand();
+
+                var right_ = BinatyOpInst.getRightOperand();
+
+
+                // (num var)
+
+                if (left_ instanceof LiteralElement) {
+                    literalVal = Integer.parseInt(((LiteralElement) left_).getLiteral());
+                    array[0] = "ifge";
+                    array[1] = loadVar(right_);
+                }
+
+                // (var num)
+                if (right_ instanceof LiteralElement) {
+                    literalVal = Integer.parseInt(((LiteralElement) right_).getLiteral());
+                    array[0] = "ifle";
+                    array[1] = loadVar(left_);
+                }
+
+
+                // (var var)
+                if (literalVal == null || literalVal != 0){
+                    array[0] = "if_icmpge";
+                    var l = loadVar(left_); var r = loadVar(right_);
+                    array[1] = l + r;
+                }
+                break;
+
+
+            default:
+                return new String[]{""};
+        };
+
+
+        return array;
+    }
+
+
+
+
+    private String generateCondBranchInstruction(CondBranchInstruction CondBranchInst){
+
+        String result[];
+        String operToPerform = "";
+        var code = new StringBuilder();
+        Instruction cond = null;
+
+
+        var varTable = getvarTable();
+
+
+        if (CondBranchInst instanceof OpCondInstruction) {
+            OpCondInstruction helperOp = (OpCondInstruction) CondBranchInst;
+            cond = helperOp.getCondition();
+        }
+
+
+        if (CondBranchInst instanceof SingleOpCondInstruction) {
+            SingleOpCondInstruction helperSingle = (SingleOpCondInstruction) CondBranchInst;
+            cond = helperSingle.getCondition();
+        }
+
+
+        var condType = cond.getInstType();
+
+        switch (condType) {
+            case BINARYOPER -> {
+                result = generateBinaryBranch((BinaryOpInstruction) cond);
+                operToPerform = result[0];
+                code.append(result[1]);
+            }
+
+
+            case UNARYOPER -> {
+                var helper = (UnaryOpInstruction) cond;
+                var opType = helper.getOperation().getOpType();
+                if (opType.equals(OperationType.NOTB)) {
+                    operToPerform = "ifeq";
+                    code.append(loadVar(helper.getOperand()));
+                }
+
+
+            }
+
+            default -> {
+                code.append(getInst(cond));
+                operToPerform = "ifne";
+
+            }
+
+
+        }
+
+
+        code.append(TAB).append(operToPerform)
+                .append(" ").append(CondBranchInst.getLabel()).append(NL);
+
+
+
+
+        if (operToPerform.equals("if_icmge")
+                || operToPerform.equals("if_icmplt")) {
+            popS(2);
+        } else popS(1);
+
+
+
+        return code.toString();
+    }
+
+    private String generateSingleOpCondInstruction(SingleOpCondInstruction singleOpInst) {
+
+
+        String operToDo = null;
+        String array[];
+        var code = new StringBuilder();
+
+        var varTable = getvarTable();
+
+        Instruction cond = singleOpInst.getCondition();
+
+
+        var tipoCond = cond.getInstType();
+
+        switch (tipoCond) {
+        case UNARYOPER -> {
+            var helper = (UnaryOpInstruction) cond;
+            if (helper.getOperation().getOpType().equals(OperationType.NOTB)) {
+                operToDo = "ifeq";
+                code.append(loadVar(helper.getOperand()));
+            }
+
+
+        }
+
+        case BINARYOPER -> {
+            array = generateBinaryBranch((BinaryOpInstruction) cond);
+            operToDo = array[0];
+            code.append(array[1]);
+
+        }
+        default -> {
+            code.append(getInst(cond));
+            operToDo = "ifne";
+        }
+
+
+        }
+
+
+        code.append(TAB).append(operToDo)
+                .append(" ").append(singleOpInst.getLabel())
+                .append(NL);
+
+
+
+
+        return code.toString();
+    }
+
+
+    private String getOper(Operation oper){
+        var code = new StringBuilder();
+        var tipo = switch (oper.getOpType()) {
+            case ANDB -> "iand";
+            case NOTB -> "ifeq";
+            case GTE -> "if_icmpte";
+            case LTH -> "if_icmplt";
+            case MUL -> "imul";
+            case DIV -> "idiv";
+            case ADD -> "iadd";
+            case SUB -> "isub";
+            default -> throw new NotImplementedException(oper.getOpType());
+        };
+
+        code.append(tipo);
+        return code.toString();
+    }
+
+
+
+    private String generateUnaryOpInstruction(UnaryOpInstruction UnaryInst){
+        var code = new StringBuilder();
+
+        var varTable = getvarTable();
+
+        var opType = UnaryInst.getOperation().getOpType();
+        code.append(loadVar(UnaryInst.getOperand())).append(TAB)
+
+                .append(getOper(UnaryInst.getOperation()));
+        if (opType.equals(OperationType.NOTB)) {
+            code.append(getJumpsBool());
+        }
+        code.append(NL);
+
+        return code.toString();
+    }
+
+
+    private String getJumpsBool() {
+
+        var code = new StringBuilder();
+
+        var JumpNum = this.IndexJUMP;
+
+        code.append(" ").append("true").append(JumpNum)
+                .append(NL).append(TAB)
+                .append("iconst_0")
+                .append(NL).append(TAB)
+                .append("goto jump")
+                .append(JumpNum).append(NL)
+                .append("true").append(JumpNum)
+                .append(":").append(NL).append(TAB)
+                .append("iconst_1").append(NL)
+                .append("jump").append(JumpNum).append(":").append(NL);
+
+
+        this.IndexJUMP++;
+
+        return code.toString();
+    }
+
+
+
+    private String generateGotoInstruction(GotoInstruction gotoInst) {
+        var code = new StringBuilder();
+        var varTable = getvarTable();
+
+        code.append("goto").append(" ").append(gotoInst.getLabel()).append(NL);
+        return code.toString();
+    }
+
+
+
+    private String generateNoper(SingleOpInstruction instr){
+        var code = new StringBuilder();
+
+        code.append(loadVar(instr.getSingleOperand())).append(NL);
+
+        return code.toString();
+    }
+
+
+
+    private String generateArrayAssignment(AssignInstruction assignInst) {
+
+        var reg = this.currentMethod.getVarTable();
+
+        this.pushS(1);
+
+        var code = new StringBuilder();
+
+
+        Operand oper = (Operand) assignInst.getDest();
+
+        String index = getVarIndex(oper.getName());
+
+        code.append("aload").append(index).append(NL)
+                .append(loadVar(((ArrayOperand) oper).getIndexOperands().get(0)));
+
+
+
+        code.append(getInst(assignInst.getRhs()));
+            code.append(storeVar(oper)).append(NL);
+
+
+        return code.toString();
+    }
+
+
+
+    private String generateArrayCall(CallInstruction callInst) {
+
+
+        //to update the args to pop
+        this.argsToPop = -1;
+
+
+        var code = new StringBuilder();
+
+        for (Element elemArr : callInst.getArguments()) {
+            this.argsToPop++;
+            code.append(loadVar(elemArr));
+
+        }
+
+
+        code.append(TAB).append("newarray int")
+                .append(NL);
+
+        return code.toString();
+    }
+
+
+
+    private String generateLengthCall(CallInstruction callInst) {
+        var code = new StringBuilder();
+
+        var oper = callInst.getOperands().get(0);
+        code.append(loadVar(oper)).append(TAB)
+                .append("arraylength").append(NL);
+
+        return code.toString();
+    }
+
+    private String generateLdcCall(CallInstruction CallInst) {
+        var code = new StringBuilder();
+
+        var oper = CallInst.getOperands().get(0);
+
+        code.append(loadVar(oper));
+
+        return code.toString();
+    }
+
+
+
+    private String generateReturn(ReturnInstruction RetInst) {
+
+        var code = new StringBuilder();
+
+
+        var elem = RetInst.getOperand();
+
+        if (RetInst.hasReturnValue()) {
+            code.append(loadVar(elem));
+            code.append(TAB);
+        } else {
+            code.append(TAB);
+        }
+
+
+
+        if (!(elem == null)) {
+            if (elem.getType().getTypeOfElement().equals(ElementType.BOOLEAN) ||
+                    elem.getType().getTypeOfElement().equals(ElementType.INT32)) {
+                code.append("i");
+            } else {
+                code.append("a");
+            }
+
+        }
+
+        code.append("return")
+                .append(NL);
+
+        return code.toString();
+    }
 
 
 
 
 
+    private int getLimitFromLocals(Method method_) {
+
+
+        Set<Integer> virt_Regs = new HashSet<>();
+        virt_Regs.add(0); //the default one
+        var code = new StringBuilder();
+
+
+        var varTableVals = method_.getVarTable().values();
+
+        for (var var : varTableVals) {
+            virt_Regs.add(var.getVirtualReg());
+        }
+
+
+        Integer size = virt_Regs.size();
+        return size;
+    }
+
+
+
+    private Boolean popS(int quant) {
+        this.currentStackSiz -= quant;
+        return true;
+    }
+
+    private Boolean pushS(int quant) {
+        this.currentStackSiz += quant;
+        this.stackLimit = retMax(this.currentStackSiz, this.stackLimit);
+        return true;
+    }
+
+
+    private int retMax(int a, int b){
+        return Math.max(a,b);
+    }
 
 
 
