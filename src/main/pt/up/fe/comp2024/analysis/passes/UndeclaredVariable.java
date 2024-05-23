@@ -52,7 +52,13 @@ public class UndeclaredVariable extends AnalysisVisitor {
         JmmNode target = methodCall.getChild(0);
 
         // Get the type of the target
-        Type targetType = getVarExprType(target, table);
+        Type targetType = null;
+        try {
+            targetType = getExprType(target, table);
+        } catch (Exception e) {
+            // Handle the exception
+            System.err.println("An error occurred while getting the variable expression type: " + e.getMessage());
+        }
         if (targetType == null) {
             addError("Variable is undeclared", methodCall);
             return null;
@@ -91,24 +97,26 @@ public class UndeclaredVariable extends AnalysisVisitor {
         }*/
 
         // Retrieve the list of arguments from the method call
-        var arguments = methodCall.getChildren();
+        var children = methodCall.getChildren() ;
+
+        int arguments = children.size() - 1;
 
         // Get the last parameter which is a symbol, if available
-        if(!parameters.isEmpty()) {
+        if (!parameters.isEmpty()) {
             var lastParam = parameters.get(parameters.size() - 1);
             // Check that the number of arguments matches the number of parameters
-            boolean isVararg = Objects.equals(lastParam.getType().getName(), "Varargs");
-            if (arguments.size() != parameters.size() && !isVararg) {
+            boolean isVararg = lastParam.getType().getName().endsWith("V");
+            if (arguments != parameters.size() && !isVararg) {
                 addError("Number of arguments does not match number of parameters for method: " + methodName, methodCall);
                 return null;
             }
             // For each argument, retrieve its type and compare it with the corresponding parameter's type
             if (!isVararg) {
-                for (int i = 0; i < arguments.size(); i++) {
-                    var argument = arguments.get(i);
+                for (int i = 0; i < arguments; i++) {
+                    var argument = children.get(i+1);
                     var parameter = parameters.get(i);
 
-                    var argumentType = getVarExprType(argument, table);
+                    var argumentType = getExprType(argument, table);
                     var parameterType = parameter.getType();
 
                     if (!argumentType.getName().equals(parameterType.getName())) {
@@ -123,7 +131,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
     }
 
 
-    // Armazena o nome do método atual e verifica se há parâmetros varargs que não estão na última posição.
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         currentMethod = method.get("name");
 
@@ -136,6 +143,44 @@ public class UndeclaredVariable extends AnalysisVisitor {
         for (int i = 0; i < parameters.size(); i++) {
             if ("Varargs".equals(parameters.get(i).getChild(0).getKind()) && i != parameters.size() - 1) {
                 addError("Varargs parameter should be the last parameter", method);
+            }
+        }
+
+        // Get the return type of the method from the symbol table
+        Type returnType = table.getReturnType(currentMethod);
+
+        for (JmmNode child : method.getChildren()) {
+            visit(child, table);
+        }
+
+        if (!method.getChildren().isEmpty()) {
+            // Get the last child of the method node
+            JmmNode lastChild = method.getChildren().get(method.getChildren().size() - 1);
+
+            // Get the type of the last child
+            Type lastChildType = null;
+            try {
+                lastChildType = getExprType(lastChild, table);
+            } catch (Exception e) {
+                addError("An error occurred while getting the expression type: " + e.getMessage(), lastChild);
+                return null;
+            }
+
+            if (Objects.equals(lastChildType.getName(), "INVALIDBINOP")) {
+                addError("Invalid type for binary operation!", method);
+            }
+            if (Objects.equals(lastChildType.getName(), "INVALIDARRACC")) {
+                addError("Invalid array access!", method);
+            }
+
+            // Check if the return type matches the type of the last child
+            if (!areTypesAssignable(lastChildType, returnType)) {
+                addError("Return type does not match the type of the returned expression", method);
+            }
+
+            // Check if the isArray property matches
+            if (lastChildType.isArray() != returnType.isArray()) {
+                addError("Return type array property does not match the array property of the returned expression", method);
             }
         }
 
@@ -232,11 +277,11 @@ public class UndeclaredVariable extends AnalysisVisitor {
     private Void checkArrayAccess(JmmNode arrayAccessNode, SymbolTable table) {
         JmmNode arrayExpr = arrayAccessNode.getChildren().get(0);
         JmmNode indexExpr = arrayAccessNode.getChildren().get(1);
-        Type arrayType = getVarExprType(arrayExpr, table);
+        Type arrayType = getExprType(arrayExpr, table);
         if (!arrayType.isArray()) {
             addError("Array access is done over a non-array type", arrayAccessNode);
         }
-        Type indexType = getVarExprType(indexExpr, table);
+        Type indexType = getExprType(indexExpr, table);
         if (!"int".equals(indexType.getName())) {
             addError("Array access index is not of integer type", indexExpr);
         }
@@ -246,11 +291,10 @@ public class UndeclaredVariable extends AnalysisVisitor {
     // Verifica se os tipos são compatíveis e se as regras de atribuição são respeitadas (incluindo casos de arrays).
     private Void checkAssignment(JmmNode node, SymbolTable table) {
         JmmNode leftOperand = node.getChildren().get(0);
-        Type leftType = getVarExprType(leftOperand, table);
+        Type leftType = getExprType(leftOperand, table);
 
         JmmNode rightOperand = node.getChildren().get(1);
-        Type rightType = getVarExprType(rightOperand, table);
-
+        Type rightType = getExprType(rightOperand, table);
 
 
         //arraycase

@@ -118,7 +118,7 @@ stmt
 
 expr
     : op=NEG expr #UnaryExpr
-    | expr DOT method=ID LPAREN (expr (COLON expr)* )? RPAREN #MethodCall
+    | target=expr DOT method=ID LPAREN (expr (COLON expr)* )? RPAREN #MethodCall
     | expr op= (MUL|DIV) expr #BinaryExpr //
     | expr op= (ADD|SUB) expr #BinaryExpr //
     | expr op=LESS expr #BinaryExpr

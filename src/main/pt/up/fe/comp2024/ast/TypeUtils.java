@@ -33,15 +33,64 @@ public class TypeUtils {
         var kind = Kind.fromString(expr.getKind());
 
         Type type = switch (kind) {
-            case METHOD_CALL -> getVarExprType(expr, table);
+            case METHOD_CALL -> getMethodCallType(expr, table);
             case BINARY_EXPR -> getBinExprType(expr, table);
             case UNARY_EXPR -> getUnaryExprType(expr, table);
             case VAR_REF_EXPR -> getVarExprType(expr, table);
+            case BRACKET_EXPR -> getBracketExprType(expr, table);
+            case NEW_BRACKET_EXPR -> getNewBracketExprType(expr, table);
+            case NEW_OBJECT -> new Type(expr.get("name"), false);
+            case SIMPLE_EXPR_STMT -> getExprType(expr.getChild(0), table);
+            case ARRAY_INIT_EXPR -> new Type("int", true);
             case INTEGER_LITERAL -> new Type(INT_TYPE_NAME, false);
+            case THIS_LITERAL -> new Type(table.getClassName(), false);
+            case TRUE_LITERAL, FALSE_LITERAL -> new Type("boolean", false);
             default -> throw new UnsupportedOperationException("Can't compute type for expression kind '" + kind + "'");
         };
 
         return type;
+    }
+
+    private static Type getBracketExprType(JmmNode expr, SymbolTable table) {
+        String parentMethodName;
+        JmmNode firstChild = expr.getChildren().get(0);
+        Type firstType = getVarExprType(firstChild, table);
+        if (!firstType.isArray()) {
+            return new Type("INVALIDARRACC", false);
+        }
+        if ("VarRefExpr".equals(firstChild.getKind())) {
+            String arrayName = firstChild.get("name");
+
+            JmmNode parentNode = expr.getParent();
+            while (!"MethodDecl".equals(parentNode.getKind())) {
+                parentNode = parentNode.getParent();
+            }
+            parentMethodName = parentNode.get("name");
+            for (Symbol localVar : table.getLocalVariables(parentMethodName)) {
+                if (localVar.getName().equals(arrayName)) {
+                    String typeName = localVar.getType().getName().replaceFirst("V$", "");
+                    return new Type(typeName, false);
+                }
+            }
+            for (Symbol param : table.getParameters(parentMethodName)) {
+                if (param.getName().equals(arrayName)) {
+                    String typeName = param.getType().getName().replaceFirst("V$", "");
+                    return new Type(typeName, false);
+                }
+            }
+            for (Symbol field : table.getFields()) {
+                if (field.getName().equals(arrayName)) {
+                    String typeName = field.getType().getName().replaceFirst("V$", "");
+                    return new Type(typeName, true);
+                }
+            }
+        }
+        return new Type("INVALIDARRACC", false);
+    }
+
+    private static Type getNewBracketExprType(JmmNode expr, SymbolTable table) {
+        var varName = expr.getChild(0).get("value");
+        return new Type(varName, true);
     }
 
     // Verifica os operandos e o operador da expressão binária. Garante que ambos os operandos são do tipo int para operadores aritméticos.
@@ -56,7 +105,7 @@ public class TypeUtils {
         switch (operator) {
             case "+", "-", "*", "/" -> {
                 if (!leftType.getName().equals(INT_TYPE_NAME) || !rightType.getName().equals(INT_TYPE_NAME)) {
-                    throw new RuntimeException("Operands of arithmetic expressions must be of type 'int'");
+                    return new Type("INVALIDBINOP", false);
                 }
                 return new Type(INT_TYPE_NAME, false);
             }
@@ -82,59 +131,43 @@ public class TypeUtils {
         return INT_TYPE_NAME.equals(type.getName()) || FLOAT_TYPE_NAME.equals(type.getName());
     }
 
-    // Verifica o tipo da referência e, conforme o tipo da expressão (inicialização de array, literais, chamadas de método, etc.), retorna o tipo correspondente.
-    public static Type getVarExprType(JmmNode varRefExpr, SymbolTable table) {
-        if ("ArrayInitExpr".equals(varRefExpr.getKind())) {
-            return new Type("int", true);
-        }
-        if ("TrueLiteral".equals(varRefExpr.getKind()) || "FalseLiteral".equals(varRefExpr.getKind())) {
-            return new Type("boolean", false);
-        }
-        if ("MethodCall".equals(varRefExpr.getKind())) {
-            String methodName = varRefExpr.get("method");
-            Type returnType = table.getReturnType(methodName);
-            return new Type(returnType.getName(), returnType.isArray());
-        }
-        String varName;
-        switch (varRefExpr.getKind()) {
-            case "ThisLiteral":
-                varName = varRefExpr.getParent().get("method");
-                break;
-            case "IntegerLiteral":
-                varName = varRefExpr.get("value");
-                return new Type("int", false);
-            case "NewBracketExpr":
-                varName = varRefExpr.getChild(0).get("value");
-                return new Type(varName, true);
-            case "BinaryExpr":
-                String operator = varRefExpr.get("op");
-                JmmNode leftOperand = varRefExpr.getChildren().get(0);
-                JmmNode rightOperand = varRefExpr.getChildren().get(1);
-                Type leftType = getVarExprType(leftOperand, table);
-                Type rightType = getVarExprType(rightOperand, table);
+    public static Type getMethodCallType(JmmNode methodCall, SymbolTable table) {
+        String methodName = methodCall.get("method");
 
-                switch (operator) {
-                    case "+":
-                    case "-":
-                    case "*":
-                    case "/":
-                        // Arithmetic operators
-                        if (leftType.getName().equals("int") && rightType.getName().equals("int")) {
-                            return new Type("int", false);
-                        } else {
-                            throw new RuntimeException("Incompatible types for arithmetic operation: " + leftType + " and " + rightType);
-                        }
-                }
-            default:
-                varName = varRefExpr.get("name");
-                break;
+        // Check methods
+        if (table.getMethods().contains(methodName)) {
+            return table.getReturnType(methodName);
         }
+
+        // Check the type of the target object
+        JmmNode target = methodCall.getChildren().get(0);
+
+        Type targetType = getExprType(target, table);
+        if (targetType == null) {
+            throw new IllegalArgumentException("Target type cannot be null");
+        }
+
+        String formattedTargetTypeName = "[" + targetType.getName() + "]";
+
+
+        // Check if the target type is in the imports
+        if (table.getImports().contains(formattedTargetTypeName)) {
+            return new Type("imported", false);
+        }
+
+        return null;
+    }
+
+    public static Type getVarExprType(JmmNode varRefExpr, SymbolTable table) {
+
+        String varName = varRefExpr.get("name");
+        String parentMethodName;
         // Check local variables
         JmmNode parentNode = varRefExpr.getParent();
         while (!"MethodDecl".equals(parentNode.getKind())) {
             parentNode = parentNode.getParent();
         }
-        String parentMethodName = parentNode.get("name");
+        parentMethodName = parentNode.get("name");
         for (Symbol localVar : table.getLocalVariables(parentMethodName)) {
             if (localVar.getName().equals(varName)) {
                 return localVar.getType();
@@ -167,7 +200,7 @@ public class TypeUtils {
             return new Type(table.getClassName(), false);
         }
         // Variable not found
-        return null; //throw new RuntimeException("Variable '" + varName + "' is undeclared");
+        throw new IllegalArgumentException("Variable '" + varName + "' not found");
     }
 
     /**
@@ -176,6 +209,14 @@ public class TypeUtils {
      * @return true if sourceType can be assigned to destinationType
      */
     public static boolean areTypesAssignable(Type sourceType, Type destinationType) {
+        if (sourceType == null || destinationType == null || destinationType.getName() == null || sourceType.getName() == null) {
+            return false;
+        }
+
+        if (sourceType.getName().equals("imported") || destinationType.getName().equals("imported")) {
+            return true;
+        }
+
         return sourceType.getName().equals(destinationType.getName());
     }
 }

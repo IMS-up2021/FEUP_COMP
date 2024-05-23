@@ -165,7 +165,7 @@ public class JmmSymbolTableBuilder {
 
                                 if (typeNode.getKind().equals("Varargs"))
                                     return new Symbol(
-                                            new Type("Varargs", true),
+                                            new Type(typeDeclaration+"V", true),
                                             param.get("name"));
 
 
