@@ -311,35 +311,6 @@ public class JasminGenerator {
 
         var reg = getvarTable();
 
-        // (Binary) Operation assigment with increment
-        if (assign.getRhs().getInstType() == InstructionType.BINARYOPER) {
-            BinaryOpInstruction binaryInstruction = (BinaryOpInstruction) assign.getRhs();
-            if (binaryInstruction.getOperation().getOpType() == OperationType.ADD) {
-
-                Element leftOperand =  binaryInstruction.getLeftOperand();
-                Element rightOperand = binaryInstruction.getRightOperand();
-                Operand true_operand = null;
-                LiteralElement true_element = null;
-
-                if (leftOperand.isLiteral() && !rightOperand.isLiteral()) {
-                    true_operand = (Operand) binaryInstruction.getRightOperand();
-                    true_element = (LiteralElement) binaryInstruction.getLeftOperand();
-                } else if (!leftOperand.isLiteral() && rightOperand.isLiteral()) {
-                    true_operand = (Operand) binaryInstruction.getLeftOperand();
-                    true_element = (LiteralElement) binaryInstruction.getRightOperand();
-                }
-
-                if (true_operand != null && true_element != null && operand.getName().equals(assign.getDest()) &&
-                        isBetween(Integer.parseInt(true_element.getLiteral()), -128, 127)) {
-                    return "\tiinc " + reg.get(operand.getName()).getVirtualReg() + " " + Integer.parseInt(true_element.getLiteral()) + "\n";
-                }
-            }
-
-
-
-
-
-        }
 
 
 
