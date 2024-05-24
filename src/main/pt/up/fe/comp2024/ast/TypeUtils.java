@@ -89,7 +89,7 @@ public class TypeUtils {
     }
 
     private static Type getNewBracketExprType(JmmNode expr, SymbolTable table) {
-        var varName = expr.getChild(0).get("value");
+        var varName = getExprType(expr.getChildren().get(0), table).getName();
         return new Type(varName, true);
     }
 
