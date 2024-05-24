@@ -347,7 +347,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
     //need to be recursive as well
     private Void visitIfElseStmt(JmmNode node, SymbolTable table) {
         JmmNode Condition = node.getChildren().get(0);
-        System.out.println(Condition.get("op")); //BinaryExpr (op: +)
 
         if (Condition.get("op").equals('+') || Condition.get("op").equals('-')
                 || Condition.get("op").equals('/') || Condition.get("op").equals('*')) {
@@ -358,7 +357,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
         JmmNode leftOp = Condition.getChild(0);
         JmmNode rightOp = Condition.getChild(1);
 
-        System.out.println(leftOp.getKind().equals("IntegerLiteral"));
 
 
         if (leftOp.getKind().equals("TrueLiteral") || rightOp.getKind().equals("FalseLiteral")) {

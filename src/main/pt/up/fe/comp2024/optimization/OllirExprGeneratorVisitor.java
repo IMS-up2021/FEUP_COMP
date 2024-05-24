@@ -32,6 +32,7 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
         addVisit(NEW_OBJECT, this::visitNewObject);
         addVisit(METHOD_CALL, this::visitMethodCall);
 
+
         setDefaultVisit(this::defaultVisit);
     }
 
@@ -48,40 +49,50 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
         var helper = "helper";
         var targetNode = jmmNode.getChildren().get(0);
         String methodTarget = targetNode.getKind();
+        String invokeType = "";
+        boolean instance = false;
         if (methodTarget.equals("VarRefExpr")) {
+            instance = true;
             methodTarget = targetNode.get("name");
         }
+        if(isClass(methodTarget,table)){
+            invokeType = "invokestatic";
+        }else if (isInstance(helper,table) || instance) {
+            invokeType = "invokevirtual";
+        }else {
+            invokeType = "invokespecial";
+        }
+
+
+        Type type = TypeUtils.getExprType(jmmNode, table);
+        String ollirType = OptUtils.toOllirType(type);
         if (methodTarget.equals("ThisLiteral")) {
             helper = "this";
             methodTarget = "this." + table.getClassName();
 
         }
+        else if(!invokeType.equals("invokestatic")){
+            methodTarget = methodTarget + ollirType;
+        }
         StringBuilder code = new StringBuilder();
 
-        Type type = TypeUtils.getExprType(jmmNode, table);
-        String ollirType = OptUtils.toOllirType(type);
-        String className = table.getClassName();
-        String invokeType = "";
 
-        if (isInstance(helper,table)) {
-            invokeType = "invokevirtual";
-        } else if(isClass(methodTarget,table)){
-            invokeType = "invokestatic";
-        }else {
-            invokeType = "invokespecial";
-        }
+        String className = table.getClassName();
+
 
         code.append(invokeType).append("(").append(methodTarget).append(", ")
-                .append("\"").append(methodName).append("\", ");
+                .append("\"").append(methodName).append("\"");
         for (int i = 1; i < jmmNode.getNumChildren(); i++) {
+            if (i == 1) {
+                code.append(", ");
+            }
             code.append(visit(jmmNode.getChildren().get(i)).getCode());
             if (i != jmmNode.getNumChildren() - 1) {
                 code.append(", ");
             }
-            else {
-                code.append(")").append(ollirType);
-            }
         }
+        code.append(")").append(ollirType);
+
 
         code.append(END_STMT);
 

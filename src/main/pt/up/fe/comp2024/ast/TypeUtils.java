@@ -152,7 +152,7 @@ public class TypeUtils {
 
         // Check if the target type is in the imports
         if (table.getImports().contains(formattedTargetTypeName)) {
-            return new Type("imported", false);
+            return new Type("V", false);
         }
 
         return null;
@@ -213,7 +213,7 @@ public class TypeUtils {
             return false;
         }
 
-        if (sourceType.getName().equals("imported") || destinationType.getName().equals("imported")) {
+        if (sourceType.getName().equals("V") || destinationType.getName().equals("V")) {
             return true;
         }
 
