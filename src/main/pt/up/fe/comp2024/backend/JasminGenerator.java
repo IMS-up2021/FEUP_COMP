@@ -628,7 +628,8 @@ public class JasminGenerator {
     private boolean isBetween(int val, int low, int high) {
         //var varTable = getvarTable();
 
-        if (val >= low && val <= high) return true;
+        if (val >= low &&
+                val <= high) return true;
 
         return false;
     }
@@ -872,14 +873,16 @@ public class JasminGenerator {
         } else {
             int val = Integer.parseInt(literal);
 
-            if (isBetween(val, -1, 5)) code.append("iconst_");
-            else if (isBetween(val, -128, 127)) code.append("bipush ");
-            else if (isBetween(val, -32768, 32767)) code.append("sipush ");
+            if (val >= -1 && val <= 5) code.append("iconst_");
+            else if (val >= -128 && val <= 127) code.append("bipush ");
+            else if (val >= -32768 && val <= 32767) code.append("sipush ");
             else {code.append(TAB); code.append("ldc ");};
 
             if (val == -1) {
+
                 code.append("m1");
             } else {
+
                 code.append(val);
             }
 
