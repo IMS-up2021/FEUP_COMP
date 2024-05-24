@@ -3,6 +3,7 @@ package pt.up.fe.comp2024.optimization;
 import static pt.up.fe.comp2024.ast.Kind.*;
 import static pt.up.fe.comp2024.optimization.OptUtils.getTemp;
 
+import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.AJmmVisitor;
@@ -49,13 +50,12 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(BINARY_EXPR, this::visitBinaryExpr);
         addVisit(VAR_REF_EXPR, this::visitVarRefExpr);
         addVisit(SIMPLE_EXPR_STMT, this::visitSimpleExpr);
-
         addVisit(TYPE, this::defaultVisit);
-
         addVisit(UNARY_EXPR, this::defaultVisit);
         addVisit(INTEGER_LITERAL, this::defaultVisit);
         setDefaultVisit(this::defaultVisit);
     }
+
 
     private void helperMethod(JmmNode node, StringBuilder code, int i) {
         var child = node.getJmmChild(i);
@@ -98,16 +98,33 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     //visit varefexpr statements
     private String visitVarRefExpr(JmmNode node, Void unused) {
-        String varName = node.get("name");
-        // Generate some OLLIR code for illustrative purposes
-        // get type from symbol table
-        Type type = TypeUtils.getExprType(node, table);
-        // Convert the type to OLLIR format
-        String ollirType = OptUtils.toOllirType(type);
-        // Generate OLLIR code
-        String ollirCode = varName + ollirType;
-        return ollirCode;
+    String varName = node.get("name");
+
+    // Get the name of the current method
+    String currentMethod = node
+            .getAncestor(METHOD_DECL)
+            .map(method -> method.get("name"))
+            .orElseThrow();
+
+    // Check if the variable is a parameter of the current method
+    for (Symbol param : table.getParameters(currentMethod)) {
+        if (param.getName().equals(varName)) {
+            // If it is, prepend "$1." to the variable name
+            varName = "$1." + varName;
+            break;
+        }
     }
+
+    // Get type from symbol table
+    Type type = TypeUtils.getExprType(node, table);
+
+    // Convert the type to OLLIR format
+    String ollirType = OptUtils.toOllirType(type);
+
+    // Generate OLLIR code
+    String ollirCode = varName + ollirType;
+    return ollirCode;
+}
 
     //visit method for binary expressions
     private String visitBinaryExpr(JmmNode node, Void unused) {
@@ -276,6 +293,10 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             // return the result of the binary expression, current tmp
             code.append(visit(lastChild));
             returnValue = OptUtils.getCurrentTemp();
+        } else if (lastChild.getKind().equals("TrueLiteral")) {
+            returnValue = "1";
+        } else if (lastChild.getKind().equals("FalseLiteral")) {
+            returnValue = "0";
         } else {
             throw new IllegalArgumentException("Unsupported return type: " + lastChild.getKind());
         }

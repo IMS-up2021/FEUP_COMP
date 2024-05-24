@@ -14,11 +14,11 @@ import java.util.Optional;
 import static pt.up.fe.comp2024.ast.Kind.TYPE;
 
 public class OptUtils {
-    private static int tempNumber = -1;
+    private static int tempNumber = 1;
 
     public static String getTemp() {
 
-        return getTemp("tmp");
+        return getTemp("t");
     }
 
     public static String getTemp(String prefix) {
@@ -54,7 +54,9 @@ public class OptUtils {
         //TYPE.checkOrThrow(typeNode);
 
         String typeName = typeNode.get("declaration");
-
+        if (typeNode.getKind().equals("Array")){
+            return ".array" + toOllirType(typeName);
+        }
         return toOllirType(typeName);
     }
 

@@ -1,10 +1,13 @@
 package pt.up.fe.comp2024.optimization;
 
+import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.ast.PreorderJmmVisitor;
 import pt.up.fe.comp2024.ast.TypeUtils;
+
+import java.util.List;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
 import static pt.up.fe.comp2024.optimization.OptUtils.*;
@@ -29,11 +32,40 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
         addVisit(VAR_REF_EXPR, this::visitVarRef);
         addVisit(BINARY_EXPR, this::visitBinExpr);
         addVisit(INTEGER_LITERAL, this::visitInteger);
+        addVisit(TRUE_LITERAL, this::visitBoolLiteral);
         addVisit(NEW_OBJECT, this::visitNewObject);
         addVisit(METHOD_CALL, this::visitMethodCall);
+        addVisit(NEW_BRACKET_EXPR, this::visitNewBracketExpr);
+        addVisit(UNARY_EXPR, this::vistUnaryExpr);
 
 
         setDefaultVisit(this::defaultVisit);
+    }
+
+    private OllirExprResult vistUnaryExpr(JmmNode jmmNode, Void unused) {
+        var child = jmmNode.getChildren().get(0);
+        var code = visit(child).getCode();
+        var type = TypeUtils.getExprType(jmmNode, table);
+        var ollirType = OptUtils.toOllirType(type);
+        return new OllirExprResult(jmmNode.get("op")  + ollirType + SPACE + code);
+    }
+
+    private OllirExprResult visitBoolLiteral(JmmNode jmmNode, Void unused) {
+        var type = new Type("boolean", false);
+        var ollirType = OptUtils.toOllirType(type);
+        if (jmmNode.getKind().equals("TrueLiteral")) {
+            return new OllirExprResult("1" + ollirType);
+        } else {
+            return new OllirExprResult("0" + ollirType);
+        }
+    }
+
+
+    private OllirExprResult visitNewBracketExpr(JmmNode jmmNode, Void unused) {
+        var type = TypeUtils.getExprType(jmmNode, table);
+        var ollirType = OptUtils.toOllirType(type);
+        var code = "new" + "(" + "array" + ", " + visit(jmmNode.getChildren().get(0)).getCode() + ")" + ollirType;
+        return new OllirExprResult(code);
     }
 
     private OllirExprResult visitNewObject(JmmNode jmmNode, Void unused) {
@@ -129,17 +161,34 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
 
 
     private OllirExprResult visitVarRef(JmmNode node, Void unused) {
+    String varName = node.get("name");
 
-        String varName = node.get("name");
-        // Generate some OLLIR code for illustrative purposes
-        // get type from symbol table
-        Type type = TypeUtils.getExprType(node, table);
-        // Convert the type to OLLIR format
-        String ollirType = OptUtils.toOllirType(type);
-        // Generate OLLIR code
-        String ollirCode = varName + ollirType;
-        return new OllirExprResult(ollirCode);
+    // Get the name of the current method
+    String currentMethod = node
+            .getAncestor(METHOD_DECL)
+            .map(method -> method.get("name"))
+            .orElseThrow();
+
+    // Check if the variable is a parameter of the current method
+    List<Symbol> parameters = table.getParameters(currentMethod);
+    for (int i = 0; i < parameters.size(); i++) {
+        Symbol param = parameters.get(i);
+        if (param.getName().equals(varName)) {
+            // If it is, prepend "$<index>." to the variable name
+            varName = "$" + (i + 1) + "." + varName;
+            break;
+        }
     }
+
+    // Generate some OLLIR code for illustrative purposes
+    // get type from symbol table
+    Type type = TypeUtils.getExprType(node, table);
+    // Convert the type to OLLIR format
+    String ollirType = OptUtils.toOllirType(type);
+    // Generate OLLIR code
+    String ollirCode = varName + ollirType;
+    return new OllirExprResult(ollirCode);
+}
 
     /**
      * Default visitor. Visits every child node and return an empty result.

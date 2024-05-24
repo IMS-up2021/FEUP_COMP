@@ -219,7 +219,9 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
             // Check if the return type matches the type of the last child
             if (!areTypesAssignable(lastChildType, returnType)) {
-                addError("Return type does not match the type of the returned expression", method);
+                if (!method.get("name").equals("main")) {
+                    addError("Return type does not match the type of the returned expression", method);
+                }
             }
 
             // Check if the isArray property matches
@@ -373,22 +375,28 @@ public class UndeclaredVariable extends AnalysisVisitor {
     //need to be recursive as well
     private Void visitIfElseStmt(JmmNode node, SymbolTable table) {
         JmmNode Condition = node.getChildren().get(0);
+        if(Condition.getKind().equals("BinaryExpr")){
+            if (Condition.get("op").equals("+") || Condition.get("op").equals("-")
+                    || Condition.get("op").equals("/") || Condition.get("op").equals("*")) {
+                addError("If condition doesn't support non boolean operations", Condition);
+            }
+            JmmNode leftOp = Condition.getChild(0);
+            JmmNode rightOp = Condition.getChild(1);
 
-        if (Condition.get("op").equals("+") || Condition.get("op").equals("-")
-                || Condition.get("op").equals("/") || Condition.get("op").equals("*")) {
-            addError("If condition doesn't support non boolean operations", Condition);
+
+            if (leftOp.getKind().equals("TrueLiteral") || rightOp.getKind().equals("FalseLiteral")) {
+            } else {
+                addError("Type of the condition is not boolean", Condition);
+            }
         }
-
-
-        JmmNode leftOp = Condition.getChild(0);
-        JmmNode rightOp = Condition.getChild(1);
-
-
-        if (leftOp.getKind().equals("TrueLiteral") || rightOp.getKind().equals("FalseLiteral")) {
-        } else {
-            addError("Type of the condition is not boolean", Condition);
+        if(Condition.getKind().equals("VarRefExpr")){
+            visitVarRefExpr(Condition, table);
+            String varName = Condition.get("name");
+            Type varType = getVariableType(varName, table, currentMethod);
+            if (!varType.getName().equals("boolean")) {
+                addError("Type of the condition is not boolean", Condition);
+            }
         }
-
 
         return null;
     }

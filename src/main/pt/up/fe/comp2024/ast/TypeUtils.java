@@ -38,7 +38,7 @@ public class TypeUtils {
             case BRACKET_EXPR -> getBracketExprType(expr, table);
             case NEW_BRACKET_EXPR -> getNewBracketExprType(expr, table);
             case NEW_OBJECT -> new Type(expr.get("name"), false);
-            case SIMPLE_EXPR_STMT -> getExprType(expr.getChild(0), table);
+            case SIMPLE_EXPR_STMT, ASSIGN_STMT -> getExprType(expr.getChild(0), table);
             case ARRAY_INIT_EXPR -> new Type("int", true);
             case INTEGER_LITERAL -> new Type(INT_TYPE_NAME, false);
             case THIS_LITERAL -> new Type(table.getClassName(), false);
@@ -107,6 +107,19 @@ public class TypeUtils {
                 }
                 return new Type(INT_TYPE_NAME, false);
             }
+            case "<", "<=", ">", ">=", "==", "!=" -> {
+                if (!leftType.getName().equals(INT_TYPE_NAME) || !rightType.getName().equals(INT_TYPE_NAME) || leftType.isArray() || rightType.isArray()) {
+                    return new Type("INVALIDBINOP", false);
+                }
+                return new Type("boolean", false);
+            }
+
+            case "&&", "||" -> {
+                if (!leftType.getName().equals("boolean") || !rightType.getName().equals("boolean") || leftType.isArray() || rightType.isArray()) {
+                    return new Type("INVALIDBINOP", false);
+                }
+                return new Type("boolean", false);
+            }
 
             default ->
                     throw new RuntimeException("Unknown operator '" + operator + "' of expression '" + binaryExpr + "'");
@@ -124,7 +137,7 @@ public class TypeUtils {
     }
 
     private static boolean isCompatibleWithUnaryExpr(Type type) {
-        return INT_TYPE_NAME.equals(type.getName()) || FLOAT_TYPE_NAME.equals(type.getName());
+        return type.getName().equals("boolean") || INT_TYPE_NAME.equals(type.getName()) || FLOAT_TYPE_NAME.equals(type.getName());
     }
 
     public static Type getMethodCallType(JmmNode methodCall, SymbolTable table) {
