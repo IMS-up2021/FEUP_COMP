@@ -7,13 +7,13 @@ Contains a reference implementation for an initial version of the project that s
 
 - Pedro Miguel Martins Romão (up202108660@edu.fe.up.pt)
 - Miguel Filipe Brandão Martins Lima (up202108659@edu.fe.up.pt)
-- Inẽs (upxxxxxxxxx@edu.fe.up.pt)
+- Inês Martin Soares (up202108852@edu.fe.up.pt)
 
 ## Work Distribution
 
 - Pedro Miguel Martins Romão - x %
 - Miguel Filipe Brandão Martins Lima - x %
-- Inẽs - o %
+- Inês Martin Soares - x %
 
 ## Self-Assessment
 
