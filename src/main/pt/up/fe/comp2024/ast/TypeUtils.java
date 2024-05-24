@@ -27,8 +27,6 @@ public class TypeUtils {
      * @param table
      * @return
      */
-
-    // Baseia-se no tipo (kind) da expressão e chama a função apropriada para determinar o tipo específico (getBinExprType, getUnaryExprType, getVarExprType)
     public static Type getExprType(JmmNode expr, SymbolTable table) {
         var kind = Kind.fromString(expr.getKind());
 
@@ -133,19 +131,16 @@ public class TypeUtils {
 
     public static Type getMethodCallType(JmmNode methodCall, SymbolTable table) {
         String methodName = methodCall.get("method");
-
         // Check methods
         if (table.getMethods().contains(methodName)) {
-            return table.getReturnType(methodName);
-        }
+            return table.getReturnType(methodName);}
 
         // Check the type of the target object
         JmmNode target = methodCall.getChildren().get(0);
 
         Type targetType = getExprType(target, table);
         if (targetType == null) {
-            throw new IllegalArgumentException("Target type cannot be null");
-        }
+            throw new IllegalArgumentException("Target type cannot be null");}
 
         String formattedTargetTypeName = "[" + targetType.getName() + "]";
 
@@ -162,7 +157,6 @@ public class TypeUtils {
 
         String varName = varRefExpr.get("name");
         String parentMethodName;
-        // Check local variables
         JmmNode parentNode = varRefExpr.getParent();
         while (!"MethodDecl".equals(parentNode.getKind())) {
             parentNode = parentNode.getParent();
@@ -179,27 +173,21 @@ public class TypeUtils {
                 return param.getType();
             }
         }
-        // Check fields
         for (Symbol field : table.getFields()) {
             if (field.getName().equals(varName)) {
                 return field.getType();
             }
         }
-        // Check imports
         for (String imported : table.getImports()) {
             if (imported.endsWith(", " + varName + "]") || imported.equals("[" + varName + "]")) {
                 return new Type(varName, false);
             }
         }
-        // Check methods
         if (table.getMethods().contains(varName)) {
             return table.getReturnType(varName);
         }
-        // Check class name
         if (table.getClassName().equals(varName)) {
-            return new Type(table.getClassName(), false);
-        }
-        // Variable not found
+            return new Type(table.getClassName(), false);}
         throw new IllegalArgumentException("Variable '" + varName + "' not found");
     }
 
@@ -220,4 +208,3 @@ public class TypeUtils {
         return sourceType.getName().equals(destinationType.getName());
     }
 }
-

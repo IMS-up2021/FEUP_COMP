@@ -12,9 +12,7 @@ import pt.up.fe.specs.util.SpecsCheck;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
-import static com.sun.source.tree.Tree.Kind.ARRAY_ACCESS;
 import static pt.up.fe.comp2024.ast.TypeUtils.*;
 
 /**
@@ -39,6 +37,7 @@ public class UndeclaredVariable extends AnalysisVisitor {
         addVisit(Kind.BRACKET_EXPR, this::checkBracketExpr);
         addVisit(Kind.WHILE_STMT, this::visitWhileStmt);
     }
+
     private Type getVariableType(String varName, SymbolTable symbolTable, String currentMethod) {
         for (var var : symbolTable.getLocalVariables(currentMethod)) {
             if (var.getName().equals(varName)) {
@@ -60,26 +59,27 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
         return null;
     }
+
     private Void visitWhileStmt(JmmNode jmmNode, SymbolTable symbolTable) {
-    JmmNode condition = jmmNode.getChildren().get(0);
+        JmmNode condition = jmmNode.getChildren().get(0);
 
-    if(condition.getKind().equals("VarRefExpr")){
-        visitVarRefExpr(condition, symbolTable);
+        if (condition.getKind().equals("VarRefExpr")) {
+            visitVarRefExpr(condition, symbolTable);
 
-        // Get the variable name
-        String varName = condition.get("name");
+            // Get the variable name
+            String varName = condition.get("name");
 
-        // Get the type of the variable from the symbol table
-        Type varType = getVariableType(varName, symbolTable, currentMethod);
+            // Get the type of the variable from the symbol table
+            Type varType = getVariableType(varName, symbolTable, currentMethod);
 
-        // Check if the variable type is boolean
-        if (!varType.getName().equals("boolean")) {
-            // If the variable type is not boolean, add an error
-            addError("The condition of the while statement is not a boolean", condition);
+            // Check if the variable type is boolean
+            if (!varType.getName().equals("boolean")) {
+                // If the variable type is not boolean, add an error
+                addError("The condition of the while statement is not a boolean", condition);
+            }
         }
+        return null;
     }
-    return null;
-}
 
     private Void checkBracketExpr(JmmNode jmmNode, SymbolTable symbolTable) {
         JmmNode firstChild = jmmNode.getChildren().get(0);
@@ -88,17 +88,14 @@ public class UndeclaredVariable extends AnalysisVisitor {
         if (!firstType.isArray()) {
             addError("Array access is done over a non-array type", jmmNode);
         }
-        if(!secondType.getName().equals("int")){
+        if (!secondType.getName().equals("int")) {
             addError("Array access index is not of integer type", jmmNode);
         }
         return null;
     }
 
 
-    // Verifica se o método chamado está declarado, se a quantidade e tipos dos argumentos são compatíveis
-    // com os parâmetros esperados, e se a chamada é feita em um alvo válido.
     private Void checkMethodCall(JmmNode methodCall, SymbolTable table) {
-        // Retrieve the method name
         String methodName = methodCall.get("method");
         if (methodName == null) {
             addError("Method name attribute is missing in MethodCall node", methodCall);
@@ -143,21 +140,13 @@ public class UndeclaredVariable extends AnalysisVisitor {
             return null;
         }
 
-        // Retrieve the list of parameters from the method
         var parameters = table.getParameters(methodName);
 
-        // Check if the parameters list is empty
-        /*if (parameters.isEmpty()) {
-            addError("Method has no parameters defined: " + methodName, methodCall);
-            return null;
-        }*/
 
-        // Retrieve the list of arguments from the method call
-        var children = methodCall.getChildren() ;
+        var children = methodCall.getChildren();
 
         int arguments = children.size() - 1;
 
-        // Get the last parameter which is a symbol, if available
         if (!parameters.isEmpty()) {
             var lastParam = parameters.get(parameters.size() - 1);
             // Check that the number of arguments matches the number of parameters
@@ -169,7 +158,7 @@ public class UndeclaredVariable extends AnalysisVisitor {
             // For each argument, retrieve its type and compare it with the corresponding parameter's type
             if (!isVararg) {
                 for (int i = 0; i < arguments; i++) {
-                    var argument = children.get(i+1);
+                    var argument = children.get(i + 1);
                     var parameter = parameters.get(i);
 
                     var argumentType = getExprType(argument, table);
@@ -185,7 +174,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
         return null;
     }
-
 
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         currentMethod = method.get("name");
@@ -243,22 +231,15 @@ public class UndeclaredVariable extends AnalysisVisitor {
         return null;
     }
 
-    // Verifica se a variável está declarada localmente, como campo da classe, como parâmetro do método atual,
-    // ou se é uma classe importada. Caso contrário, regista um erro.
     private Void visitVarRefExpr(JmmNode varRefExpr, SymbolTable table) {
         SpecsCheck.checkNotNull(currentMethod, () -> "Expected current method to be set");
 
         String varRefName = varRefExpr.get("name");
 
-        // Check if variable is declared in current method
         if (!isDeclaredLocally(varRefName, table)) {
-            // Check if variable is a field of the class
             if (!isField(varRefName, table)) {
-                // Check if variable is a parameter of the current method
                 if (!isParameter(varRefName, table)) {
-                    // Check if variable is an imported class
                     if (!isImportedClass(varRefName, table)) {
-                        // Variable is undeclared
                         addUndeclaredVariableError(varRefExpr, varRefName);
                     }
                 }
@@ -288,7 +269,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
                 .anyMatch(imported -> (imported.endsWith(", " + varName + "]") || imported.equals("[" + varName + "]")));
     }
 
-    // Tenta obter o tipo da expressão binária e registra um erro caso haja uma incompatibilidade de tipos.
     private Void checkBinaryExpression(JmmNode binaryExpr, SymbolTable table) {
         try {
             Type resultType = getBinExprType(binaryExpr, table);
@@ -299,7 +279,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
         return null;
     }
 
-    // Tenta obter o tipo da expressão unária e regista um erro caso haja uma incompatibilidade de tipos.
     private Void checkUnaryExpr(JmmNode exprNode, SymbolTable table) {
         try {
             Type resultType = getUnaryExprType(exprNode, table);
@@ -309,7 +288,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
         return null;
     }
 
-    // Cria um relatório de erro semântico com a linha, coluna e mensagem de erro, e o adiciona aos relatórios.
     private void addError(String message, JmmNode node) {
         int line = NodeUtils.getLine(node);
         int column = NodeUtils.getColumn(node);
@@ -329,7 +307,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
         );
     }
 
-    // Verifica se o índice é do tipo int e se a expressão de array é de um tipo array, registando erros conforme necessário.
     private Void checkArrayAccess(JmmNode arrayAccessNode, SymbolTable table) {
         JmmNode arrayExpr = arrayAccessNode.getChildren().get(0);
         JmmNode indexExpr = arrayAccessNode.getChildren().get(1);
@@ -344,7 +321,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
         return null;
     }
 
-    // Verifica se os tipos são compatíveis e se as regras de atribuição são respeitadas (incluindo casos de arrays).
     private Void checkAssignment(JmmNode node, SymbolTable table) {
         JmmNode leftOperand = node.getChildren().get(0);
         Type leftType = getExprType(leftOperand, table);
@@ -353,7 +329,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
         Type rightType = getExprType(rightOperand, table);
 
 
-        //arraycase
         if ((!leftType.isArray() && rightType.isArray()) || (leftType.isArray() && !rightType.isArray())) {
             addError("Array is incorrectly assigned", node);
         }
@@ -385,21 +360,17 @@ public class UndeclaredVariable extends AnalysisVisitor {
         if (!(isLeftAssignableToSuper || isRightAssignableToSuper || isLeftAssignableToRight || bothImported)) {
             addError("Type of the assignee is not compatible with the assigned or the superclass", node);
         }
-
         return null;
     }
-
 
     private boolean isAssignable(Type leftType, Type rightType) {
         // If either type is null, assignment is not possible
         if (leftType == null || rightType == null) {
             return false;
         }
-        // Use the areTypesAssignable function to check whether types are assignable
         return areTypesAssignable(rightType, leftType);
     }
 
-    // Verifica se a condição é uma expressão booleana e registra um erro se não for.
     //need to be recursive as well
     private Void visitIfElseStmt(JmmNode node, SymbolTable table) {
         JmmNode Condition = node.getChildren().get(0);
@@ -412,7 +383,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
         JmmNode leftOp = Condition.getChild(0);
         JmmNode rightOp = Condition.getChild(1);
-
 
 
         if (leftOp.getKind().equals("TrueLiteral") || rightOp.getKind().equals("FalseLiteral")) {
