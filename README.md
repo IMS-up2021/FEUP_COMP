@@ -5,15 +5,15 @@ Contains a reference implementation for an initial version of the project that s
 
 ## Group members
 
-- Aqua (upxxxxxxxxx@edu.fe.up.pt)
-- Ruby (upxxxxxxxxx@edu.fe.up.pt)
-- Kana (upxxxxxxxxx@edu.fe.up.pt)
+- Pedro Miguel Martins Romão (up202108660@edu.fe.up.pt)
+- Miguel Filipe Brandão Martins Lima (up202108659@edu.fe.up.pt)
+- Inẽs (upxxxxxxxxx@edu.fe.up.pt)
 
 ## Work Distribution
 
-- Aqua - 33.33 %
-- Ruby - 33.33 %
-- Kana - 33.33 %
+- Pedro Miguel Martins Romão - x %
+- Miguel Filipe Brandão Martins Lima - x %
+- Inẽs - o %
 
 ## Self-Assessment
 
