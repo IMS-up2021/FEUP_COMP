@@ -11,8 +11,8 @@ Contains a reference implementation for an initial version of the project that s
 
 ## Work Distribution
 
-- Pedro Miguel Martins Romão - x %
-- Miguel Filipe Brandão Martins Lima - x %
+- Pedro Miguel Martins Romão - 45 %
+- Miguel Filipe Brandão Martins Lima - 45 %
 - Inês Martin Soares - x %
 
 ## Self-Assessment
