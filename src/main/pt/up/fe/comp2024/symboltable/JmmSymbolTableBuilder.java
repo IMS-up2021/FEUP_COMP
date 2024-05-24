@@ -50,10 +50,7 @@ public class JmmSymbolTableBuilder {
     }
 
     private static String buildSuperClassName(JmmNode classDecl) {
-        System.out.println("Inside buildSuperClassName");
         for (JmmNode child : classDecl.getChildren()) {
-            System.out.println("Inside For Loop");
-            System.out.println("Child kind: " + child.getKind()); // Print the kind of the child
             if ("ExtendsDecl".equals(child.getKind())) {
                 //System.out.println("Inside If");
                 //print node
@@ -94,7 +91,6 @@ public class JmmSymbolTableBuilder {
                     map.put(methodName, new Type(returnType, isArray));
                 });
 
-        System.out.println("MAP NEXT!!");
         // Print the contents of the map
         map.forEach((key, value) ->
                 System.out.println(

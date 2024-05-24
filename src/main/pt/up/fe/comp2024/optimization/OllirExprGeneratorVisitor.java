@@ -7,8 +7,7 @@ import pt.up.fe.comp.jmm.ast.PreorderJmmVisitor;
 import pt.up.fe.comp2024.ast.TypeUtils;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
-import static pt.up.fe.comp2024.optimization.OptUtils.isClass;
-import static pt.up.fe.comp2024.optimization.OptUtils.isInstance;
+import static pt.up.fe.comp2024.optimization.OptUtils.*;
 
 /**
  * Generates OLLIR code from JmmNodes that are expressions.
@@ -30,50 +29,67 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
         addVisit(VAR_REF_EXPR, this::visitVarRef);
         addVisit(BINARY_EXPR, this::visitBinExpr);
         addVisit(INTEGER_LITERAL, this::visitInteger);
+        addVisit(NEW_OBJECT, this::visitNewObject);
         addVisit(METHOD_CALL, this::visitMethodCall);
+
 
         setDefaultVisit(this::defaultVisit);
     }
 
+    private OllirExprResult visitNewObject(JmmNode jmmNode, Void unused) {
+        var className = jmmNode.get("name");
+        var type = new Type(className, false);
+        var ollirType = OptUtils.toOllirType(type);
+        var code = "new " + "(" + className + ")" + ollirType;
+        return new OllirExprResult(code);
+    }
+
     private OllirExprResult visitMethodCall(JmmNode jmmNode, Void unused) {
         var methodName = jmmNode.get("method");
-        var helper = "helper";
+
         var targetNode = jmmNode.getChildren().get(0);
         String methodTarget = targetNode.getKind();
-        if (methodTarget.equals("VarRefExpr")) {
-            methodTarget = targetNode.get("name");
-        }
-        if (methodTarget.equals("ThisLiteral")) {
-            helper = "this";
-            methodTarget = "this." + table.getClassName();
-
-        }
-        StringBuilder code = new StringBuilder();
-
+        var helper = methodTarget;
         Type type = TypeUtils.getExprType(jmmNode, table);
         String ollirType = OptUtils.toOllirType(type);
-        String className = table.getClassName();
         String invokeType = "";
-
-        if (isInstance(helper,table)) {
-            invokeType = "invokevirtual";
-        } else if(isClass(methodTarget,table)){
+        if (methodTarget.equals("ThisLiteral")) {
+            helper = "this";
+        }
+        else if (methodTarget.equals("VarRefExpr")) {
+            helper = targetNode.get("name");
+        }
+        StringBuilder code = new StringBuilder();
+        boolean instance = false;
+        if (methodTarget.equals("VarRefExpr")) {
+            instance = true;
+            methodTarget = targetNode.get("name");
+        }
+        if (isClass(methodTarget, table)) {
             invokeType = "invokestatic";
-        }else {
+        } else if (isInstance(helper, table) || instance) {
+            invokeType = "invokevirtual";
+            helper = helper + "." + table.getClassName();
+        } else {
             invokeType = "invokespecial";
+            helper = helper + "." +  table.getClassName();
         }
 
-        code.append(invokeType).append("(").append(methodTarget).append(", ")
-                .append("\"").append(methodName).append("\")").append(ollirType);
+
+        code.append(invokeType).append("(").append(helper).append(", ")
+                .append("\"").append(methodName).append("\"");
+        for (int i = 1; i < jmmNode.getNumChildren(); i++) {
+            if (i == 1) {
+                code.append(", ");
+            }
+            code.append(visit(jmmNode.getChildren().get(i)).getCode());
+            if (i != jmmNode.getNumChildren() - 1) {
+                code.append(", ");
+            }
+        }
+        code.append(")").append(ollirType);
 
         code.append(END_STMT);
-
-        /*if (needsHelperVar(jmmNode.getParent())){
-            String helperVar = OptUtils.getTemp();
-            code.insert(0, helperVar + SPACE + ASSIGN);
-            code.append(helperVar).append(ollirType);
-        }*/
-
 
         return new OllirExprResult(code.toString());
     }
@@ -87,44 +103,42 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
 
 
     private OllirExprResult visitBinExpr(JmmNode node, Void unused) {
-
-        var lhs = visit(node.getJmmChild(0));
-        var rhs = visit(node.getJmmChild(1));
-
+        var rightNode = node.getJmmChild(1);
+        var leftNode = node.getJmmChild(0);
+        String rhs = "";
+        String temp = getTemp();
         StringBuilder computation = new StringBuilder();
-
-        // code to compute the children
-        computation.append(lhs.getComputation());
-        computation.append(rhs.getComputation());
-
-        // code to compute self
+        StringBuilder code = new StringBuilder();
         Type resType = TypeUtils.getExprType(node, table);
         String resOllirType = OptUtils.toOllirType(resType);
-        String code = OptUtils.getTemp() + resOllirType;
+        if (needsTemp(rightNode)) {
+            rhs = temp + resOllirType;
+            computation.append(temp).append(resOllirType).append(SPACE).append(ASSIGN).append(resOllirType).append(SPACE).append(visit(rightNode).getCode());
+        } else {
+            rhs = visit(rightNode).getCode();
+        }
 
-        computation.append(code).append(SPACE)
-                .append(ASSIGN).append(resOllirType).append(SPACE)
-                .append(lhs.getCode()).append(SPACE);
+        var lhs = visit(leftNode);
 
-        Type type = TypeUtils.getExprType(node, table);
-        computation.append(node.get("op")).append(OptUtils.toOllirType(type)).append(SPACE)
-                .append(rhs.getCode()).append(END_STMT);
+        code.append(lhs.getCode()).append(SPACE)
+                .append(node.get("op")).append(resOllirType).append(SPACE)
+                .append(rhs).append(SPACE);
 
-        return new OllirExprResult(code, computation);
+        return new OllirExprResult(String.valueOf(code), computation);
     }
-
-
 
 
     private OllirExprResult visitVarRef(JmmNode node, Void unused) {
 
-        var id = node.get("name");
+        String varName = node.get("name");
+        // Generate some OLLIR code for illustrative purposes
+        // get type from symbol table
         Type type = TypeUtils.getExprType(node, table);
+        // Convert the type to OLLIR format
         String ollirType = OptUtils.toOllirType(type);
-
-        String code = id + ollirType;
-
-        return new OllirExprResult(code);
+        // Generate OLLIR code
+        String ollirCode = varName + ollirType;
+        return new OllirExprResult(ollirCode);
     }
 
     /**

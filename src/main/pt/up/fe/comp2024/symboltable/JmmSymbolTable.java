@@ -72,7 +72,6 @@ public class JmmSymbolTable implements SymbolTable {
 
 @Override
 public Type getReturnType(String methodName) {
-    System.out.println("METHOD NAME: " + methodName);
 
     // If the method is "main", return null since it doesn't have a return type
     // if ("main".equals(methodName)) {
@@ -82,17 +81,12 @@ public Type getReturnType(String methodName) {
 
     // Debug print: print the method name and the return type
     Type returnType = this.returnTypes.get(methodName);
-    System.out.println("RETURN TYPE: " + returnType);
 
     // If returnType is null, print a message and return null
     if (returnType == null) {
         System.out.println("No return type found for method: " + methodName);
         return null;
     }
-
-    System.out.println("getReturnType called for method: " + methodName);
-    System.out.println("Return type: " + returnType.getName());
-    System.out.println("Is array: " + returnType.isArray());
 
     return returnType;
 }

@@ -89,7 +89,7 @@ public class TypeUtils {
     }
 
     private static Type getNewBracketExprType(JmmNode expr, SymbolTable table) {
-        var varName = expr.getChild(0).get("value");
+        var varName = getExprType(expr.getChildren().get(0), table).getName();
         return new Type(varName, true);
     }
 
@@ -104,7 +104,7 @@ public class TypeUtils {
 
         switch (operator) {
             case "+", "-", "*", "/" -> {
-                if (!leftType.getName().equals(INT_TYPE_NAME) || !rightType.getName().equals(INT_TYPE_NAME)) {
+                if (!leftType.getName().equals(INT_TYPE_NAME) || !rightType.getName().equals(INT_TYPE_NAME) || leftType.isArray() || rightType.isArray()) {
                     return new Type("INVALIDBINOP", false);
                 }
                 return new Type(INT_TYPE_NAME, false);
@@ -152,7 +152,7 @@ public class TypeUtils {
 
         // Check if the target type is in the imports
         if (table.getImports().contains(formattedTargetTypeName)) {
-            return new Type("imported", false);
+            return new Type("V", false);
         }
 
         return null;
@@ -213,7 +213,7 @@ public class TypeUtils {
             return false;
         }
 
-        if (sourceType.getName().equals("imported") || destinationType.getName().equals("imported")) {
+        if (sourceType.getName().equals("V") || destinationType.getName().equals("V")) {
             return true;
         }
 
