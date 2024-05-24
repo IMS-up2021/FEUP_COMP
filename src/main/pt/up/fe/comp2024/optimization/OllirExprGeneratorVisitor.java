@@ -40,47 +40,43 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
         var className = jmmNode.get("name");
         var type = new Type(className, false);
         var ollirType = OptUtils.toOllirType(type);
-        var code = "new "  + "(" + className + ")" + ollirType;
+        var code = "new " + "(" + className + ")" + ollirType;
         return new OllirExprResult(code);
     }
 
     private OllirExprResult visitMethodCall(JmmNode jmmNode, Void unused) {
         var methodName = jmmNode.get("method");
-        var helper = "helper";
+
         var targetNode = jmmNode.getChildren().get(0);
         String methodTarget = targetNode.getKind();
+        var helper = methodTarget;
+        Type type = TypeUtils.getExprType(jmmNode, table);
+        String ollirType = OptUtils.toOllirType(type);
         String invokeType = "";
+        if (methodTarget.equals("ThisLiteral")) {
+            helper = "this";
+        }
+        else if (methodTarget.equals("VarRefExpr")) {
+            helper = targetNode.get("name");
+        }
+        StringBuilder code = new StringBuilder();
         boolean instance = false;
         if (methodTarget.equals("VarRefExpr")) {
             instance = true;
             methodTarget = targetNode.get("name");
         }
-        if(isClass(methodTarget,table)){
+        if (isClass(methodTarget, table)) {
             invokeType = "invokestatic";
-        }else if (isInstance(helper,table) || instance) {
+        } else if (isInstance(helper, table) || instance) {
             invokeType = "invokevirtual";
-        }else {
+            helper = helper + "." + table.getClassName();
+        } else {
             invokeType = "invokespecial";
+            helper = helper + "." +  table.getClassName();
         }
 
 
-        Type type = TypeUtils.getExprType(jmmNode, table);
-        String ollirType = OptUtils.toOllirType(type);
-        if (methodTarget.equals("ThisLiteral")) {
-            helper = "this";
-            methodTarget = "this." + table.getClassName();
-
-        }
-        else if(!invokeType.equals("invokestatic")){
-            methodTarget = methodTarget + ollirType;
-        }
-        StringBuilder code = new StringBuilder();
-
-
-        String className = table.getClassName();
-
-
-        code.append(invokeType).append("(").append(methodTarget).append(", ")
+        code.append(invokeType).append("(").append(helper).append(", ")
                 .append("\"").append(methodName).append("\"");
         for (int i = 1; i < jmmNode.getNumChildren(); i++) {
             if (i == 1) {
@@ -93,15 +89,7 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
         }
         code.append(")").append(ollirType);
 
-
         code.append(END_STMT);
-
-        /*if (needsHelperVar(jmmNode.getParent())){
-            String helperVar = OptUtils.getTemp();
-            code.insert(0, helperVar + SPACE + ASSIGN);
-            code.append(helperVar).append(ollirType);
-        }*/
-
 
         return new OllirExprResult(code.toString());
     }
@@ -123,11 +111,10 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
         StringBuilder code = new StringBuilder();
         Type resType = TypeUtils.getExprType(node, table);
         String resOllirType = OptUtils.toOllirType(resType);
-        if(needsTemp(rightNode)){
+        if (needsTemp(rightNode)) {
             rhs = temp + resOllirType;
             computation.append(temp).append(resOllirType).append(SPACE).append(ASSIGN).append(resOllirType).append(SPACE).append(visit(rightNode).getCode());
-        }
-        else{
+        } else {
             rhs = visit(rightNode).getCode();
         }
 
@@ -139,8 +126,6 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
 
         return new OllirExprResult(String.valueOf(code), computation);
     }
-
-
 
 
     private OllirExprResult visitVarRef(JmmNode node, Void unused) {
