@@ -36,6 +36,62 @@ public class UndeclaredVariable extends AnalysisVisitor {
         addVisit(Kind.ASSIGN_STMT, this::checkAssignment);
         addVisit(Kind.IF_ELSE_STMT, this::visitIfElseStmt);
         addVisit(Kind.METHOD_CALL, this::checkMethodCall);
+        addVisit(Kind.BRACKET_EXPR, this::checkBracketExpr);
+        addVisit(Kind.WHILE_STMT, this::visitWhileStmt);
+    }
+    private Type getVariableType(String varName, SymbolTable symbolTable, String currentMethod) {
+        for (var var : symbolTable.getLocalVariables(currentMethod)) {
+            if (var.getName().equals(varName)) {
+                return var.getType();
+            }
+        }
+
+        for (var field : symbolTable.getFields()) {
+            if (field.getName().equals(varName)) {
+                return field.getType();
+            }
+        }
+
+        for (var param : symbolTable.getParameters(currentMethod)) {
+            if (param.getName().equals(varName)) {
+                return param.getType();
+            }
+        }
+
+        return null;
+    }
+    private Void visitWhileStmt(JmmNode jmmNode, SymbolTable symbolTable) {
+    JmmNode condition = jmmNode.getChildren().get(0);
+
+    if(condition.getKind().equals("VarRefExpr")){
+        visitVarRefExpr(condition, symbolTable);
+
+        // Get the variable name
+        String varName = condition.get("name");
+
+        // Get the type of the variable from the symbol table
+        Type varType = getVariableType(varName, symbolTable, currentMethod);
+
+        // Check if the variable type is boolean
+        if (!varType.getName().equals("boolean")) {
+            // If the variable type is not boolean, add an error
+            addError("The condition of the while statement is not a boolean", condition);
+        }
+    }
+    return null;
+}
+
+    private Void checkBracketExpr(JmmNode jmmNode, SymbolTable symbolTable) {
+        JmmNode firstChild = jmmNode.getChildren().get(0);
+        Type firstType = getExprType(firstChild, symbolTable);
+        Type secondType = getExprType(jmmNode.getChildren().get(1), symbolTable);
+        if (!firstType.isArray()) {
+            addError("Array access is done over a non-array type", jmmNode);
+        }
+        if(!secondType.getName().equals("int")){
+            addError("Array access index is not of integer type", jmmNode);
+        }
+        return null;
     }
 
 
@@ -348,8 +404,8 @@ public class UndeclaredVariable extends AnalysisVisitor {
     private Void visitIfElseStmt(JmmNode node, SymbolTable table) {
         JmmNode Condition = node.getChildren().get(0);
 
-        if (Condition.get("op").equals('+') || Condition.get("op").equals('-')
-                || Condition.get("op").equals('/') || Condition.get("op").equals('*')) {
+        if (Condition.get("op").equals("+") || Condition.get("op").equals("-")
+                || Condition.get("op").equals("/") || Condition.get("op").equals("*")) {
             addError("If condition doesn't support non boolean operations", Condition);
         }
 

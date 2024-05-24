@@ -104,7 +104,7 @@ public class TypeUtils {
 
         switch (operator) {
             case "+", "-", "*", "/" -> {
-                if (!leftType.getName().equals(INT_TYPE_NAME) || !rightType.getName().equals(INT_TYPE_NAME)) {
+                if (!leftType.getName().equals(INT_TYPE_NAME) || !rightType.getName().equals(INT_TYPE_NAME) || leftType.isArray() || rightType.isArray()) {
                     return new Type("INVALIDBINOP", false);
                 }
                 return new Type(INT_TYPE_NAME, false);
