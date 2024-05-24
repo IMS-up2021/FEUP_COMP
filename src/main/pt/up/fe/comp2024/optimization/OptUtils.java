@@ -1,6 +1,7 @@
 package pt.up.fe.comp2024.optimization;
 
 import org.specs.comp.ollir.Instruction;
+import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2024.ast.NodeUtils;
@@ -33,6 +34,14 @@ public class OptUtils {
 
         tempNumber += 1;
         return tempNumber;
+    }
+
+    public static boolean isInstance(String target, SymbolTable table) {
+        return target.equals("this") || target.equals("VarRefExpr");
+    }
+
+    public static boolean isClass(String target, SymbolTable table) {
+        return table.getImports().contains("[" + target + "]") || target.equals(table.getClassName());
     }
 
     public static String toOllirType(JmmNode typeNode) {

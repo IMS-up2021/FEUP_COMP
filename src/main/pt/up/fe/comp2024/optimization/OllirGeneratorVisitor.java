@@ -1,6 +1,7 @@
 package pt.up.fe.comp2024.optimization;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
+import static pt.up.fe.comp2024.optimization.OptUtils.getTemp;
 
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
@@ -128,7 +129,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         // Get the operator of the binary expression
         String operator = node.get("op");
         // get the current tmp from OptUtils
-        String tmp = OptUtils.getTemp();
+        String tmp = getTemp();
         // get type from symbol table
         Type type = TypeUtils.getExprType(node, table);
         // Convert the type to OLLIR format
@@ -167,8 +168,57 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     }
 
     private String visitAssignStmt(JmmNode node, Void unused) {
-        var lhs = exprVisitor.visit(node.getJmmChild(0));
-        var rhs = exprVisitor.visit(node.getJmmChild(1));
+        var leftNode = node.getJmmChild(0);
+        var rightNode = node.getJmmChild(1);
+        if (rightNode.getChildren().size() < 2) {
+            return visitAssignStmtSimple(node, leftNode, rightNode);
+        } else {
+            return visitAssignStmtComplex(node, leftNode, rightNode);
+        }
+
+    }
+
+    private String visitAssignStmtComplex(JmmNode node, JmmNode leftNode, JmmNode rightNode) {
+        var temp = getTemp();
+        var lhs = exprVisitor.visit(leftNode);
+        var rhs = exprVisitor.visit(rightNode);
+
+
+
+        StringBuilder code = new StringBuilder();
+
+        code.append(temp + ASSIGN + lhs.getCode());
+        // code to compute the children
+        code.append(temp);
+        code.append(rhs.getComputation());
+
+        // code to compute self
+        // statement has type of lhs
+        Type thisType = TypeUtils.getExprType(node.getJmmChild(0), table);
+        String typeString = OptUtils.toOllirType(thisType);
+
+        code.append(temp);
+        code.append(SPACE);
+
+        code.append(ASSIGN);
+        code.append(typeString);
+        code.append(SPACE);
+
+        code.append(rhs.getCode());
+
+        code.append(END_STMT);
+
+        System.out.println("ASSIGN OLLIR WILL BE PRINTED");
+        System.out.println(code.toString());
+        System.out.println("OLLIR PRINTED");
+        return code.toString();
+    }
+
+    private String visitAssignStmtSimple(JmmNode node, JmmNode leftNode, JmmNode rightNode) {
+        var lhs = exprVisitor.visit(leftNode);
+        var rhs = exprVisitor.visit(rightNode);
+
+
 
         StringBuilder code = new StringBuilder();
 
@@ -330,7 +380,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         code.append(R_BRACKET);
         code.append(NL);
         System.out.println("METHOD OLLIR WILL BE PRINTED");
-        System.out.println(code.toString());
+        System.out.println(code);
         System.out.println("OLLIR PRINTED");
         return code.toString();
     }
