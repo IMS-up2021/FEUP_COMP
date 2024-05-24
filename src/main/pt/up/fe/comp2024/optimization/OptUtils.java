@@ -3,6 +3,7 @@ package pt.up.fe.comp2024.optimization;
 import org.specs.comp.ollir.Instruction;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
+import pt.up.fe.comp.jmm.ast.AJmmNode;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2024.ast.NodeUtils;
 import pt.up.fe.specs.util.exceptions.NotImplementedException;
@@ -40,6 +41,10 @@ public class OptUtils {
         return target.equals("this") || target.equals("VarRefExpr");
     }
 
+    public static boolean needsTemp(JmmNode node) {
+        return node.getKind().equals("BinaryExpr") || node.getKind().equals("UnaryExpr") || node.getKind().equals("MethodCall");
+    }
+
     public static boolean isClass(String target, SymbolTable table) {
         return table.getImports().contains("[" + target + "]") || target.equals(table.getClassName());
     }
@@ -62,7 +67,7 @@ public class OptUtils {
         String type = "." + switch (typeName) {
             case "int" -> "i32";
             case "boolean" -> "bool";
-            default -> throw new NotImplementedException(typeName);
+            default -> typeName;
         };
 
         return type;
