@@ -13,7 +13,7 @@ Contains a reference implementation for an initial version of the project that s
 
 - Pedro Miguel Martins Romão - 45 %
 - Miguel Filipe Brandão Martins Lima - 45 %
-- Inês Martin Soares - x %
+- Inês Martin Soares - 10 %
 
 ## Self-Assessment
 
