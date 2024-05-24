@@ -295,7 +295,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
         addReport(errorReport);
     }
 
-
     private void addUndeclaredVariableError(JmmNode varRefExpr, String varName) {
         var message = String.format("Variable '%s' is undeclared.", varName);
         addReport(Report.newError(

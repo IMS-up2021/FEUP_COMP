@@ -117,11 +117,9 @@ public class TypeUtils {
     public static Type getUnaryExprType(JmmNode expr, SymbolTable table) {
         JmmNode operand = expr.getChildren().get(0);
         Type operandType = getExprType(operand, table);
-
         if (!isCompatibleWithUnaryExpr(operandType)) {
             throw new RuntimeException("Unary expression operand must have compatible type");
         }
-
         return operandType;
     }
 
@@ -133,14 +131,16 @@ public class TypeUtils {
         String methodName = methodCall.get("method");
         // Check methods
         if (table.getMethods().contains(methodName)) {
-            return table.getReturnType(methodName);}
+            return table.getReturnType(methodName);
+        }
 
         // Check the type of the target object
         JmmNode target = methodCall.getChildren().get(0);
 
         Type targetType = getExprType(target, table);
         if (targetType == null) {
-            throw new IllegalArgumentException("Target type cannot be null");}
+            throw new IllegalArgumentException("Target type cannot be null");
+        }
 
         String formattedTargetTypeName = "[" + targetType.getName() + "]";
 
@@ -187,7 +187,8 @@ public class TypeUtils {
             return table.getReturnType(varName);
         }
         if (table.getClassName().equals(varName)) {
-            return new Type(table.getClassName(), false);}
+            return new Type(table.getClassName(), false);
+        }
         throw new IllegalArgumentException("Variable '" + varName + "' not found");
     }
 
